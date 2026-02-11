@@ -67,7 +67,8 @@ export const getProfiles = async (): Promise<Profile[]> => {
 
 export const getPublicProfiles = async (): Promise<Profile[]> => {
   const p = await getProfiles();
-  return p.filter(x => x.is_public);
+  // Un profil doit être public ET non archivé pour apparaître dans l'index public
+  return p.filter(x => x.is_public && !x.is_archived);
 };
 
 export const getProfileByPublicId = async (publicId: string): Promise<Profile | null> => {
@@ -87,6 +88,15 @@ export const saveProfile = async (profileData: Profile): Promise<Profile> => {
 export const deleteProfile = async (id: string): Promise<void> => {
   const p = await getProfiles();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(p.filter(x => x.id !== id)));
+};
+
+export const toggleArchiveProfile = async (id: string): Promise<void> => {
+  const p = await getProfiles();
+  const idx = p.findIndex(x => x.id === id);
+  if (idx !== -1) {
+    p[idx].is_archived = !p[idx].is_archived;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+  }
 };
 
 export const toggleProfileVisibility = async (id: string, isPublic: boolean): Promise<void> => {

@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Profile } from '../types';
-import { getProfiles, deleteProfile } from '../services/mockSupabase';
+import { getProfiles, deleteProfile, toggleArchiveProfile } from '../services/mockSupabase';
 import { 
   Search, 
   Eye, 
@@ -14,17 +14,18 @@ import {
   TrendingUp,
   MousePointer2,
   Share2,
-  Unlock
+  Unlock,
+  Archive,
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AdminDashboard: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'list' | 'stats'>('list');
+  const [activeTab, setActiveTab] = useState<'active' | 'archived' | 'stats'>('active');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   
   const navigate = useNavigate();
@@ -32,11 +33,9 @@ const AdminDashboard: React.FC = () => {
   const fetchProfiles = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const data = await getProfiles();
       setProfiles(data);
     } catch (err) {
-      setError('Erreur lors du chargement des profils');
       console.error(err);
     } finally {
       setLoading(false);
@@ -47,6 +46,22 @@ const AdminDashboard: React.FC = () => {
     fetchProfiles();
   }, [fetchProfiles]);
 
+  const handleArchive = async (id: string) => {
+    await toggleArchiveProfile(id);
+    fetchProfiles();
+  };
+
+  const filteredProfiles = useMemo(() => {
+    return profiles.filter(p => {
+      const isCorrectStatus = activeTab === 'archived' ? p.is_archived : !p.is_archived;
+      if (!isCorrectStatus) return false;
+      
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return p.name.toLowerCase().includes(term) || p.usual_place?.toLowerCase().includes(term);
+    });
+  }, [profiles, searchTerm, activeTab]);
+
   const globalStats = useMemo(() => {
     return {
       totalViews: profiles.reduce((acc, p) => acc + (p.views || 0), 0),
@@ -55,18 +70,6 @@ const AdminDashboard: React.FC = () => {
       avgEngagement: profiles.length ? (profiles.reduce((acc, p) => acc + (p.needs_clicks || 0), 0) / profiles.length).toFixed(1) : 0
     };
   }, [profiles]);
-
-  useEffect(() => {
-    let result = [...profiles];
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(profile =>
-        profile.name.toLowerCase().includes(term) ||
-        profile.usual_place?.toLowerCase().includes(term)
-      );
-    }
-    setFilteredProfiles(result);
-  }, [profiles, searchTerm]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -112,27 +115,33 @@ const AdminDashboard: React.FC = () => {
         {/* Tabs */}
         <div className="flex border-b border-gray-200">
           <button 
-            onClick={() => setActiveTab('list')}
-            className={`px-8 py-4 font-black text-[10px] uppercase tracking-[0.3em] transition-all ${activeTab === 'list' ? 'border-b-4 border-stone-900 text-stone-900' : 'text-stone-300 hover:text-stone-500'}`}
+            onClick={() => setActiveTab('active')}
+            className={`px-8 py-4 font-black text-[10px] uppercase tracking-[0.3em] transition-all ${activeTab === 'active' ? 'border-b-4 border-stone-900 text-stone-900' : 'text-stone-300 hover:text-stone-500'}`}
           >
-            Liste des Profils
+            Profils Actifs
+          </button>
+          <button 
+            onClick={() => setActiveTab('archived')}
+            className={`px-8 py-4 font-black text-[10px] uppercase tracking-[0.3em] transition-all ${activeTab === 'archived' ? 'border-b-4 border-stone-900 text-stone-900' : 'text-stone-300 hover:text-stone-500'}`}
+          >
+            Archives ({profiles.filter(p => p.is_archived).length})
           </button>
           <button 
             onClick={() => setActiveTab('stats')}
             className={`px-8 py-4 font-black text-[10px] uppercase tracking-[0.3em] transition-all ${activeTab === 'stats' ? 'border-b-4 border-stone-900 text-stone-900' : 'text-stone-300 hover:text-stone-500'}`}
           >
-            Statistiques d'Impact
+            Statistiques
           </button>
         </div>
 
-        {activeTab === 'list' ? (
+        {activeTab !== 'stats' ? (
           <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden">
              <div className="p-8 border-b border-stone-50">
                 <div className="relative max-w-md">
                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-200 w-4 h-4" />
                    <input 
                       type="text" 
-                      placeholder="Chercher une existence..." 
+                      placeholder={`Chercher parmi les ${activeTab === 'active' ? 'actifs' : 'archivés'}...`} 
                       className="w-full pl-12 pr-6 py-3 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-stone-900 transition-all font-serif italic"
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
@@ -151,7 +160,14 @@ const AdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-50">
-                    {filteredProfiles.map(p => (
+                    {filteredProfiles.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-8 py-20 text-center space-y-3">
+                          <AlertCircle className="w-8 h-8 text-stone-200 mx-auto" />
+                          <p className="font-serif italic text-stone-400">Aucun profil trouvé dans cette section.</p>
+                        </td>
+                      </tr>
+                    ) : filteredProfiles.map(p => (
                         <tr key={p.id} className="hover:bg-stone-50/50 transition-colors group">
                           <td className="px-8 py-6">
                               <div className="font-serif font-bold text-stone-900 text-lg">{p.name}</div>
@@ -167,6 +183,13 @@ const AdminDashboard: React.FC = () => {
                               <Link to={`/admin/edit/${p.publicId}`} className="p-3 text-stone-400 hover:text-stone-900 hover:bg-white rounded-xl inline-block transition-all paper-shadow">
                                 <Edit2 className="w-4 h-4" />
                               </Link>
+                              <button 
+                                onClick={() => handleArchive(p.id)} 
+                                className="p-3 text-stone-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all paper-shadow"
+                                title={p.is_archived ? "Désarchiver" : "Archiver"}
+                              >
+                                {p.is_archived ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                              </button>
                               <button onClick={() => setShowDeleteConfirm(p.id)} className="p-3 text-stone-400 hover:text-red-600 hover:bg-white rounded-xl transition-all paper-shadow">
                                 <Trash2 className="w-4 h-4" />
                               </button>
