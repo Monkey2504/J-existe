@@ -1,47 +1,25 @@
 
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout.tsx';
-import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
+import { AuthProvider } from './contexts/AuthContext.tsx';
 import PageTransition from './components/animations/PageTransition.tsx';
 import LoadingOverlay from './components/LoadingOverlay.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 
-// Lazy loading explicite avec extensions .tsx
+// Lazy loading
 const HomePage = lazy(() => import('./pages/HomePage.tsx'));
 const ProfilesListingPage = lazy(() => import('./pages/ProfilesListingPage.tsx'));
 const ProfileDetailPage = lazy(() => import('./pages/ProfileDetailPage.tsx'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.tsx'));
 const EditProfilePage = lazy(() => import('./pages/EditProfilePage.tsx'));
+const QuestionnairePage = lazy(() => import('./pages/QuestionnairePage.tsx'));
 
-// Protection de route
-const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ 
-  children, 
-  adminOnly = true 
-}) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const location = useLocation();
-  
-  if (isLoading) {
-    return <LoadingOverlay message="Vérification d'accès..." />;
-  }
-  
-  if (!isAuthenticated) {
-    return (
-      <Navigate 
-        to="/" 
-        replace 
-        state={{ from: location }} 
-      />
-    );
-  }
-  
-  if (adminOnly && user?.role !== 'admin') {
-    return <Navigate to="/" replace />;
-  }
-  
-  return <>{children}</>;
-};
+// Nouvelles pages ressources
+const FAQPage = lazy(() => import('./pages/FAQPage.tsx'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage.tsx'));
+const TermsPage = lazy(() => import('./pages/TermsPage.tsx'));
+const PartnersPage = lazy(() => import('./pages/PartnersPage.tsx'));
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -53,12 +31,19 @@ const AppContent: React.FC = () => {
           <Routes location={location}>
             <Route path="/" element={<HomePage />} />
             <Route path="/profiles" element={<ProfilesListingPage />} />
-            <Route path="/profiles/:lieu" element={<ProfilesListingPage />} />
             <Route path="/p/:publicId" element={<ProfileDetailPage />} />
             
-            <Route path="/admin" element={<RequireAuth><AdminDashboard /></RequireAuth>} />
-            <Route path="/admin/new" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
-            <Route path="/admin/edit/:publicId" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
+            {/* Ressources */}
+            <Route path="/faq" element={<FAQPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/partners" element={<PartnersPage />} />
+            
+            {/* Routes Espace Pro (Ouvertes pour l'instance) */}
+            <Route path="/je-cree-ma-fiche" element={<QuestionnairePage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/new" element={<EditProfilePage />} />
+            <Route path="/admin/edit/:publicId" element={<EditProfilePage />} />
             
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -17,9 +17,18 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Plus,
+  Trash2,
+  Zap
 } from 'lucide-react';
 import StoryPreview from '../components/StoryPreview';
+
+interface NeedItem {
+  id: string;
+  text: string;
+  isUrgent: boolean;
+}
 
 const EditProfilePage: React.FC = () => {
   const { publicId } = useParams<{ publicId: string }>();
@@ -27,12 +36,12 @@ const EditProfilePage: React.FC = () => {
   
   const isNewProfile = publicId === 'new';
   
-  // Fix: Added is_archived and is_verified to satisfy Profile interface
   const [formData, setFormData] = useState<Partial<Profile>>({
     name: '',
     raw_story: '',
     reformulated_story: '',
     needs: '',
+    urgent_needs: [],
     usual_place: '',
     is_public: false,
     is_archived: false,
@@ -44,10 +53,9 @@ const EditProfilePage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
-  const [needsArray, setNeedsArray] = useState<string[]>([]);
+  const [needsList, setNeedsList] = useState<NeedItem[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   
-  // Charger le profil existant
   useEffect(() => {
     const loadProfile = async () => {
       if (!isNewProfile && publicId) {
@@ -56,10 +64,18 @@ const EditProfilePage: React.FC = () => {
           const data = await getProfileByPublicId(publicId);
           if (data) {
             setFormData(data);
-            // Convertir les besoins en tableau
             if (data.needs) {
-              const parsedNeeds = data.needs.split('\n').filter(n => n.trim());
-              setNeedsArray(parsedNeeds);
+              const parsedNeeds = data.needs.split('\n')
+                .filter(n => n.trim())
+                .map(n => {
+                  const cleanText = n.replace(/^[-\s•]+/, '').trim();
+                  return {
+                    id: crypto.randomUUID(),
+                    text: cleanText,
+                    isUrgent: data.urgent_needs?.includes(cleanText) || false
+                  };
+                });
+              setNeedsList(parsedNeeds);
             }
           }
         } catch (error) {
@@ -69,564 +85,270 @@ const EditProfilePage: React.FC = () => {
         }
       }
     };
-    
     loadProfile();
   }, [publicId, isNewProfile]);
 
-  // Gestionnaire de reformulation
   const handleReformulate = useCallback(async () => {
     if (!formData.raw_story?.trim()) {
       setErrors({ raw_story: 'Veuillez saisir un récit avant de reformuler' });
       return;
     }
-    
     setIsReformulating(true);
     setErrors({});
-    
     try {
       const result = await reformulateStory(formData.raw_story);
-      setFormData(prev => ({ 
-        ...prev, 
-        reformulated_story: result,
-        reformulation_date: new Date().toISOString()
-      }));
-      
-      // Afficher un message de succès
+      setFormData(prev => ({ ...prev, reformulated_story: result }));
       setSuccessMessage('Récit reformulé avec succès !');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Erreur reformulation:', error);
-      setErrors({ reformulated_story: 'Erreur lors de la reformulation. Essayez à nouveau.' });
+      setErrors({ reformulated_story: 'Erreur lors de la reformulation.' });
     } finally {
       setIsReformulating(false);
     }
   }, [formData.raw_story]);
 
-  // Gestion des besoins
-  const handleNeedsChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, needs: value }));
-    
-    // Mettre à jour le tableau des besoins
-    const parsedNeeds = value.split('\n')
-      .map(n => n.trim())
-      .filter(n => n.length > 0);
-    setNeedsArray(parsedNeeds);
-  }, []);
+  const updateNeedsFromList = (list: NeedItem[]) => {
+    const needsString = list.map(n => `- ${n.text}`).join('\n');
+    const urgentArray = list.filter(n => n.isUrgent).map(n => n.text);
+    setFormData(prev => ({ ...prev, needs: needsString, urgent_needs: urgentArray }));
+  };
 
-  // Ajouter un besoin prédéfini
-  const addPresetNeed = useCallback((need: string) => {
-    const currentNeeds = formData.needs || '';
-    const updatedNeeds = currentNeeds 
-      ? `${currentNeeds}\n${need}`
-      : need;
-    
-    setFormData(prev => ({ ...prev, needs: updatedNeeds }));
-    
-    // Mettre à jour le tableau
-    setNeedsArray(prev => [...prev, need]);
-  }, [formData.needs]);
+  const addNeed = useCallback((text: string = '') => {
+    const newList = [...needsList, { id: crypto.randomUUID(), text, isUrgent: false }];
+    setNeedsList(newList);
+    updateNeedsFromList(newList);
+  }, [needsList]);
 
-  // Validation du formulaire
+  const removeNeed = (id: string) => {
+    const newList = needsList.filter(n => n.id !== id);
+    setNeedsList(newList);
+    updateNeedsFromList(newList);
+  };
+
+  const toggleUrgency = (id: string) => {
+    const newList = needsList.map(n => n.id === id ? { ...n, isUrgent: !n.isUrgent } : n);
+    setNeedsList(newList);
+    updateNeedsFromList(newList);
+  };
+
+  const updateNeedText = (id: string, text: string) => {
+    const newList = needsList.map(n => n.id === id ? { ...n, text } : n);
+    setNeedsList(newList);
+    updateNeedsFromList(newList);
+  };
+
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
-    
-    if (!formData.name?.trim()) {
-      newErrors.name = 'Le nom est obligatoire';
-    }
-    
-    if (!formData.usual_place?.trim()) {
-      newErrors.usual_place = 'Le lieu habituel est obligatoire';
-    }
-    
-    if (!formData.raw_story?.trim()) {
-      newErrors.raw_story = 'Le récit est obligatoire';
-    }
-    
-    if (formData.raw_story && formData.raw_story.length < 50) {
-      newErrors.raw_story = 'Le récit doit contenir au moins 50 caractères';
-    }
-    
-    if (!formData.reformulated_story?.trim()) {
-      newErrors.reformulated_story = 'La version reformulée est obligatoire';
-    }
-    
+    if (!formData.name?.trim()) newErrors.name = 'Le nom est obligatoire';
+    if (!formData.usual_place?.trim()) newErrors.usual_place = 'Le lieu habituel est obligatoire';
+    if (!formData.raw_story?.trim()) newErrors.raw_story = 'Le récit est obligatoire';
+    if (!formData.reformulated_story?.trim()) newErrors.reformulated_story = 'La reformulation est obligatoire';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
-  // Soumission du formulaire
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
+    if (!validateForm()) return;
     setIsSaving(true);
-    setErrors({});
-    
     try {
-      // Fix: added missing required properties is_archived and is_verified
       const profileToSave: Profile = {
+        ...formData,
         id: formData.id || `profile_${Date.now()}`,
-        publicId: formData.publicId || 
-          `${formData.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substr(2, 6)}`,
-        name: formData.name || '',
-        raw_story: formData.raw_story || '',
-        reformulated_story: formData.reformulated_story || '',
-        needs: formData.needs || '',
-        usual_place: formData.usual_place || '',
-        is_public: formData.is_public || false,
-        is_archived: formData.is_archived || false,
-        is_verified: formData.is_verified || false,
+        publicId: formData.publicId || `${formData.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substr(2, 6)}`,
         created_at: formData.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      };
-
+      } as Profile;
       await saveProfile(profileToSave);
-      
       setSuccessMessage('Profil enregistré avec succès !');
-      
-      // Redirection après un délai
-      setTimeout(() => {
-        navigate('/admin');
-      }, 1500);
-      
+      setTimeout(() => navigate('/admin'), 1500);
     } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      setErrors({ submit: 'Erreur lors de la sauvegarde. Veuillez réessayer.' });
+      setErrors({ submit: 'Erreur lors de la sauvegarde.' });
     } finally {
       setIsSaving(false);
     }
   }, [formData, validateForm, navigate]);
 
-  // Besoins prédéfinis
   const presetNeeds = useMemo(() => [
-    'Duvet/sac de couchage',
-    'Chaussures taille 42-44',
-    'Vêtements chauds',
+    'Duvet chaud',
+    'Chaussures (42-44)',
+    'Vêtements de pluie',
     'Produits d\'hygiène',
-    'Médicaments',
+    'Abonnement STIB',
     'Aide administrative',
-    'Trousse de premiers soins',
-    'Couverture de survie',
-    'Sous-vêtements',
-    'Chaussettes épaisses',
-    'Bonnet/gants',
-    'Eau potable',
-    'Nourriture non périssable',
-    'Chargeur téléphone',
-    'Carte SIM prépayée'
+    'Trousse de secours',
+    'Chargeur téléphone'
   ], []);
 
-  // Statistiques du récit
-  const storyStats = useMemo(() => ({
-    rawLength: formData.raw_story?.length || 0,
-    reformulatedLength: formData.reformulated_story?.length || 0,
-    needsCount: needsArray.length,
-    isValid: formData.reformulated_story && formData.reformulated_story.length <= 500
-  }), [formData, needsArray]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Chargement du profil...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="w-12 h-12 animate-spin text-stone-900" />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-stone-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* En-tête */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate('/admin')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Retour au tableau de bord
+          <button onClick={() => navigate('/admin')} className="flex items-center gap-2 text-stone-400 hover:text-stone-900 mb-6 font-bold uppercase tracking-widest text-[10px]">
+            <ArrowLeft className="w-4 h-4" /> Retour Dashboard
           </button>
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {isNewProfile ? 'Créer un nouveau profil' : `Modifier : ${formData.name}`}
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Remplissez les informations avec respect et précision
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {!isNewProfile && formData.publicId && (
-                <a
-                  href={`/#/p/${formData.publicId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-800"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Voir le profil public
-                </a>
-              )}
-              
-              <button
-                type="button"
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showPreview ? 'Masquer aperçu' : 'Aperçu'}
-              </button>
-            </div>
+          <div className="flex items-end justify-between">
+            <h1 className="text-6xl font-impact text-stone-900 uppercase">{isNewProfile ? 'Nouveau Visage' : 'Modification'}</h1>
+            <button 
+              type="button" 
+              onClick={() => setShowPreview(!showPreview)} 
+              className="px-6 py-2 border-2 border-stone-900 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-stone-900 hover:text-white transition-all"
+            >
+              {showPreview ? 'Masquer Aperçu' : 'Aperçu Direct'}
+            </button>
           </div>
         </div>
 
-        {/* Aperçu */}
-        {showPreview && formData.reformulated_story && (
-          <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Aperçu du profil public</h2>
+        {showPreview && (
+          <div className="mb-12">
             <StoryPreview profile={formData as Profile} />
           </div>
         )}
 
-        {/* Messages d'état */}
-        {successMessage && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-            <span className="text-green-700">{successMessage}</span>
-          </div>
-        )}
-        
-        {errors.submit && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-            <span className="text-red-700">{errors.submit}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Informations de base */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <User className="w-5 h-5 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">Informations de base</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Nom */}
+        <form onSubmit={handleSubmit} className="space-y-12">
+          {/* Section Identité */}
+          <div className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-sm space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Nom / Prénom *
-                </label>
+                <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest">Identité</label>
                 <input
                   type="text"
-                  required
                   value={formData.name || ''}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-lg border ${
-                    errors.name ? 'border-red-300' : 'border-gray-300'
-                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                  placeholder="Ex: Jean-Pierre Martin"
+                  className="w-full text-2xl font-serif italic border-b border-stone-100 focus:border-stone-900 outline-none pb-2"
+                  placeholder="Ex: Jean de Molenbeek"
                 />
-                {errors.name && (
-                  <p className="text-sm text-red-600">{errors.name}</p>
-                )}
+                {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase">{errors.name}</p>}
               </div>
-
-              {/* Lieu habituel */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Lieu habituel *
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    required
-                    value={formData.usual_place || ''}
-                    onChange={e => setFormData({ ...formData, usual_place: e.target.value })}
-                    className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                      errors.usual_place ? 'border-red-300' : 'border-gray-300'
-                    } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                    placeholder="Ex: Place de la Bastille, Paris"
-                  />
-                </div>
-                {errors.usual_place && (
-                  <p className="text-sm text-red-600">{errors.usual_place}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Statut de publication */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="flex items-center gap-3">
+                <label className="text-[10px] font-bold text-stone-300 uppercase tracking-widest">Lieu habituel (Bruxelles)</label>
                 <input
-                  type="checkbox"
-                  id="is_public"
-                  checked={formData.is_public || false}
-                  onChange={e => setFormData({ ...formData, is_public: e.target.checked })}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  type="text"
+                  value={formData.usual_place || ''}
+                  onChange={e => setFormData({ ...formData, usual_place: e.target.value })}
+                  className="w-full text-xl font-serif border-b border-stone-100 focus:border-stone-900 outline-none pb-2"
+                  placeholder="Ex: Place Sainte-Catherine, Bruxelles"
                 />
-                <label htmlFor="is_public" className="flex items-center gap-2 text-gray-700">
-                  {formData.is_public ? (
-                    <>
-                      <Eye className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">Profil public</span>
-                      <span className="text-sm text-gray-500">(visible sur le site)</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-4 h-4 text-gray-400" />
-                      <span className="font-medium">Profil privé</span>
-                      <span className="text-sm text-gray-500">(visible uniquement en administration)</span>
-                    </>
-                  )}
-                </label>
+                {errors.usual_place && <p className="text-[10px] text-red-500 font-bold uppercase">{errors.usual_place}</p>}
               </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-4">
+              <input
+                type="checkbox"
+                id="is_public"
+                checked={formData.is_public || false}
+                onChange={e => setFormData({ ...formData, is_public: e.target.checked })}
+                className="w-5 h-5 rounded border-stone-200 text-stone-900 focus:ring-stone-900"
+              />
+              <label htmlFor="is_public" className="text-xs font-bold uppercase tracking-widest text-stone-500">Rendre ce profil public</label>
             </div>
           </div>
 
-          {/* Besoins */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-green-50 rounded-lg">
-                <Package className="w-5 h-5 text-green-600" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">Besoins immédiats</h2>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Saisie des besoins */}
-              <div className="lg:col-span-2 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Liste des besoins (un par ligne)
-                  </label>
-                  <textarea
-                    value={formData.needs || ''}
-                    onChange={handleNeedsChange}
-                    rows={8}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                    placeholder={`Exemple :\n- Duvet chaud\n- Chaussures taille 43\n- Consultation médicale`}
-                  />
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-sm text-gray-500">
-                      {needsArray.length} besoin(s) défini(s)
-                    </span>
-                    {needsArray.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData(prev => ({ ...prev, needs: '' }));
-                          setNeedsArray([]);
-                        }}
-                        className="text-sm text-red-600 hover:text-red-800"
-                      >
-                        Effacer tout
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Besoins prédéfinis */}
-              <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Ajouter rapidement :
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {presetNeeds.slice(0, 8).map((need, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => addPresetNeed(need)}
-                      className="px-3 py-2 bg-blue-50 text-blue-700 text-sm rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      + {need}
-                    </button>
-                  ))}
-                </div>
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-500 mb-2">
-                    Exemples de formulation :
-                  </p>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                      Soins dentaires urgents
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                      Aide pour carte d'identité
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                      Traduction de documents
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Récit de vie */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <FileText className="w-5 h-5 text-purple-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900">Récit de vie</h2>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-500 space-x-4">
-                  <span className={storyStats.rawLength < 50 ? 'text-amber-600' : 'text-green-600'}>
-                    {storyStats.rawLength} caractères
-                  </span>
-                  <span className={storyStats.reformulatedLength > 500 ? 'text-red-600' : 'text-green-600'}>
-                    {storyStats.reformulatedLength}/500
-                  </span>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={handleReformulate}
-                  disabled={isReformulating || !formData.raw_story?.trim()}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                    isReformulating || !formData.raw_story?.trim()
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                  }`}
-                >
-                  <Sparkles className={`w-4 h-4 ${isReformulating ? 'animate-spin' : ''}`} />
-                  {isReformulating ? 'Reformulation...' : 'Reformuler par IA'}
+          {/* Section Récit */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white p-10 rounded-[3rem] border border-stone-100 space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Récit Brut (Notes de terrain)</h2>
+                <button type="button" onClick={handleReformulate} disabled={isReformulating} className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-2 uppercase tracking-widest">
+                  <Sparkles className="w-3 h-3" /> {isReformulating ? 'Analyse Gemini...' : 'Reformuler par IA'}
                 </button>
               </div>
+              <textarea
+                value={formData.raw_story || ''}
+                onChange={e => setFormData({ ...formData, raw_story: e.target.value })}
+                rows={8}
+                className="w-full bg-stone-50 rounded-2xl p-6 text-sm font-mono border-none focus:ring-2 focus:ring-stone-900"
+                placeholder="Détails biographiques, raisons de la chute, quotidien..."
+              />
+              {errors.raw_story && <p className="text-[10px] text-red-500 font-bold uppercase">{errors.raw_story}</p>}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Récit brut */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Récit brut (notes de l'entretien) *
-                  </label>
-                  <textarea
-                    value={formData.raw_story || ''}
-                    onChange={e => setFormData({ ...formData, raw_story: e.target.value })}
-                    rows={10}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      errors.raw_story ? 'border-red-300' : 'border-gray-300'
-                    } focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm`}
-                    placeholder="Saisissez ici les paroles brutes de la personne, telles qu'elles ont été exprimées..."
-                  />
-                  {errors.raw_story && (
-                    <p className="text-sm text-red-600">{errors.raw_story}</p>
-                  )}
-                  <div className="text-xs text-gray-500 mt-2">
-                    Conseil : Notez les mots exacts de la personne, sans interprétation.
-                  </div>
-                </div>
-              </div>
-
-              {/* Version reformulée */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Version reformulée (affichée au public) *
-                  </label>
-                  <textarea
-                    value={formData.reformulated_story || ''}
-                    onChange={e => setFormData({ ...formData, reformulated_story: e.target.value })}
-                    rows={10}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      errors.reformulated_story ? 'border-red-300' : 'border-gray-300'
-                    } focus:ring-2 focus:ring-blue-500 focus:border-blue-500 italic leading-relaxed`}
-                    placeholder="Cette version sera affichée publiquement. Elle doit être respectueuse, concise (max 500 caractères) et fidèle à l'esprit du récit original."
-                  />
-                  {errors.reformulated_story && (
-                    <p className="text-sm text-red-600">{errors.reformulated_story}</p>
-                  )}
-                  <div className="text-xs text-gray-500 mt-2 flex justify-between">
-                    <span>Maximum 500 caractères</span>
-                    <span className={storyStats.reformulatedLength > 500 ? 'text-red-600' : 'text-green-600'}>
-                      {storyStats.reformulatedLength}/500
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Conseils de reformulation */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Conseils pour une bonne reformulation :</h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Respectez la voix et le ton de la personne
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Soyez clair et concis
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Évitez le sensationnalisme
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  Conservez la dignité et l'authenticité
-                </li>
-              </ul>
+            <div className="bg-white p-10 rounded-[3rem] border border-stone-100 space-y-6">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Récit Reformulé (Version Publique)</h2>
+              <textarea
+                value={formData.reformulated_story || ''}
+                onChange={e => setFormData({ ...formData, reformulated_story: e.target.value })}
+                rows={8}
+                className="w-full bg-white rounded-2xl p-6 text-lg font-serif italic border border-stone-100 focus:ring-2 focus:ring-stone-900"
+                placeholder="La version synthétisée et digne..."
+              />
+              {errors.reformulated_story && <p className="text-[10px] text-red-500 font-bold uppercase">{errors.reformulated_story}</p>}
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-200">
-            <div className="text-sm text-gray-500">
-              {isNewProfile ? 'Création d\'un nouveau profil' : `Dernière modification : ${
-                formData.updated_at 
-                  ? new Date(formData.updated_at).toLocaleDateString('fr-FR')
-                  : 'Jamais'
-              }`}
-            </div>
-            
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => navigate('/admin')}
-                className="px-6 py-3 text-gray-700 hover:text-gray-900 font-medium"
-              >
-                Annuler
-              </button>
-              
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {isNewProfile ? 'Créer le profil' : 'Enregistrer les modifications'}
-                  </>
-                )}
+          {/* Section Besoins & Urgence */}
+          <div className="bg-white p-10 rounded-[3rem] border border-stone-100 space-y-8">
+            <div className="flex justify-between items-center">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-300">Besoins Réels & Priorités</h2>
+              <button type="button" onClick={() => addNeed()} className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors">
+                <Plus className="w-3 h-3" /> Ajouter un besoin
               </button>
             </div>
+
+            <div className="space-y-4">
+              {needsList.length === 0 && (
+                <p className="text-stone-400 font-serif italic text-center py-8">Aucun besoin listé pour le moment.</p>
+              )}
+              {needsList.map((need) => (
+                <div key={need.id} className={`flex items-center gap-4 p-4 rounded-2xl transition-all ${need.isUrgent ? 'bg-amber-50 border-2 border-amber-200 shadow-sm' : 'bg-stone-50 border border-stone-100'}`}>
+                  <button 
+                    type="button" 
+                    onClick={() => toggleUrgency(need.id)}
+                    className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${need.isUrgent ? 'bg-amber-500 text-white' : 'bg-white text-stone-300 hover:text-amber-500'}`}
+                    title={need.isUrgent ? "Marqué comme urgent" : "Marquer comme urgent"}
+                  >
+                    <Zap className={`w-5 h-5 ${need.isUrgent ? 'fill-white' : ''}`} />
+                  </button>
+                  <input
+                    type="text"
+                    value={need.text}
+                    onChange={e => updateNeedText(need.id, e.target.value)}
+                    placeholder="Désignation du besoin..."
+                    className="flex-1 bg-transparent border-none outline-none font-serif text-lg text-stone-800"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => removeNeed(need.id)}
+                    className="p-2 text-stone-300 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4 border-t border-stone-50 pt-8">
+              <h3 className="text-[9px] font-black uppercase tracking-widest text-stone-300">Suggestions rapides</h3>
+              <div className="flex flex-wrap gap-2">
+                {presetNeeds.map(n => (
+                  <button 
+                    key={n} 
+                    type="button" 
+                    onClick={() => addNeed(n)} 
+                    className="px-4 py-2 bg-stone-50 text-stone-400 rounded-full text-[9px] font-bold hover:bg-stone-200 hover:text-stone-900 transition-all uppercase tracking-widest"
+                  >
+                    + {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end items-center gap-10 pt-10">
+            {successMessage && <span className="text-green-600 font-bold text-xs uppercase tracking-widest animate-fade-in">{successMessage}</span>}
+            <button type="button" onClick={() => navigate('/admin')} className="text-[10px] font-bold uppercase tracking-widest text-stone-400 hover:text-stone-900">Annuler</button>
+            <button type="submit" disabled={isSaving} className="px-12 py-5 bg-stone-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-2xl flex items-center gap-3">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isSaving ? 'Synchronisation...' : 'Fixer l\'existence'}
+            </button>
           </div>
         </form>
       </div>

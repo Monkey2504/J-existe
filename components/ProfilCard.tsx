@@ -1,136 +1,85 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  MapPin, 
-  ArrowRight, 
-  AlertCircle, 
-  User,
-  Shield
-} from 'lucide-react';
+import { MapPin, MoveRight, User, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Profile } from '../types.ts';
 
 interface ProfilCardProps {
   profil: Profile;
+  index: number;
 }
 
-const ProfilCard: React.FC<ProfilCardProps> = ({ 
-  profil, 
-}) => {
-  // Détecter si le profil a besoin urgent
-  const hasUrgentNeeds = profil.metadata?.urgency_score && profil.metadata.urgency_score >= 8;
-  
-  // Extraire les premiers mots du récit
-  const getExcerpt = (text: string, maxLength: number = 120) => {
-    if (!text) return "";
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength).trim() + '...';
-  };
-
-  // Formater les besoins (limiter à 2)
-  const besoinsList = profil.besoins_immediats || profil.metadata?.immediate_needs || [];
-  const displayedNeeds = besoinsList.slice(0, 2);
-  const hasMoreNeeds = besoinsList.length > 2;
-
-  const storyContent = profil.reformulated_story || profil.recit_reformule || "";
+const ProfilCard: React.FC<ProfilCardProps> = ({ profil, index }) => {
+  const isLarge = index % 4 === 0;
+  const hasUrgentNeeds = profil.urgent_needs && profil.urgent_needs.length > 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ 
-        y: -8,
-        transition: { type: "spring", stiffness: 400, damping: 25 }
-      }}
-      whileTap={{ scale: 0.98 }}
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.8, delay: (index % 3) * 0.1 }}
+      className={`${isLarge ? 'md:col-span-2' : 'md:col-span-1'}`}
     >
       <Link
         to={`/p/${profil.publicId}`}
-        className="group block relative overflow-hidden rounded-2xl bg-white border border-stone-200 shadow-sm hover:shadow-2xl transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-stone-500/20 focus:border-stone-300"
-        aria-label={`Voir le profil de ${profil.name}`}
+        className="group relative flex flex-col h-full bg-white border border-stone-100 p-8 rounded-[2.5rem] paper-shadow hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] transition-all duration-700 ease-out overflow-hidden"
       >
-        {/* Badge d'urgence */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-stone-50 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-50 transition-colors duration-700" />
+
         {hasUrgentNeeds && (
-          <div className="absolute top-4 left-4 z-20">
-            <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-lg">
-              <AlertCircle className="w-3 h-3" />
-              <span>Urgent</span>
-            </div>
+          <div className="absolute top-6 right-6 z-20 flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-white rounded-full shadow-lg scale-90 md:scale-100">
+            <Zap className="w-3 h-3 fill-white" />
+            <span className="text-[8px] font-black uppercase tracking-widest">Urgent</span>
           </div>
         )}
 
-        {/* Badge de vérification */}
-        {profil.is_verified && (
-          <div className="absolute top-4 right-4 z-20">
-            <div className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-stone-500 to-stone-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-lg">
-              <Shield className="w-3 h-3" />
-              <span>Vérifié</span>
-            </div>
-          </div>
-        )}
-
-        {/* Contenu principal */}
-        <div className="p-6 md:p-8">
-          <div className="flex flex-col h-full">
-            {/* En-tête avec nom et avatar */}
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0">
-                <div className="relative">
-                  <div className="w-16 h-16 bg-stone-900 rounded-2xl flex items-center justify-center shadow-md">
-                    <User className="w-8 h-8 text-white" strokeWidth={1.5} />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-2xl font-serif font-bold text-stone-900 group-hover:text-stone-700 transition-colors truncate">
-                      {profil.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-stone-500">
-                      <MapPin className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{profil.usual_place}</span>
-                    </div>
-                  </div>
-                  
-                  <ArrowRight className="w-5 h-5 text-stone-300 group-hover:text-stone-900 group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
-                </div>
-              </div>
-            </div>
-
-            {/* Récit de vie */}
-            <div className="mb-6 flex-1">
-              <p className="text-stone-600 leading-relaxed italic line-clamp-3 font-serif">
-                "{getExcerpt(storyContent)}"
-              </p>
-            </div>
-
-            {/* Footer de la carte : besoins */}
-            <div className="flex items-center justify-between pt-4 border-t border-stone-50">
-              <div className="flex flex-wrap gap-2">
-                {displayedNeeds.map((need, idx) => (
-                  <span key={idx} className="px-2 py-1 bg-stone-100 text-stone-600 text-[10px] rounded-md font-bold uppercase tracking-wider">
-                    {need}
-                  </span>
-                ))}
-                {hasMoreNeeds && (
-                  <span className="text-[10px] text-stone-400 font-bold">...</span>
-                )}
-              </div>
-              
-              {profil.views !== undefined && (
-                <div className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">
-                  {profil.views} vue{profil.views > 1 ? 's' : ''}
+        <div className="relative z-10 flex flex-col h-full space-y-6">
+          <div className="flex items-center gap-6">
+            <div className={`shrink-0 overflow-hidden rounded-2xl bg-stone-100 border border-stone-100 transition-all duration-700 group-hover:scale-105 ${isLarge ? 'w-32 h-32' : 'w-20 h-20'}`}>
+              {profil.image_url ? (
+                <img 
+                  src={profil.image_url} 
+                  alt={profil.name} 
+                  className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-stone-300">
+                  <User className="w-8 h-8" />
                 </div>
               )}
             </div>
+            
+            <div className="space-y-1">
+              <h3 className={`font-serif font-black text-stone-900 leading-none tracking-tight transition-all duration-500 uppercase ${isLarge ? 'text-5xl' : 'text-3xl'}`}>
+                {profil.name}
+              </h3>
+              <div className="flex items-center gap-2 text-stone-300 text-[9px] font-bold uppercase tracking-[0.2em] group-hover:text-blue-400 transition-colors">
+                <MapPin className="w-3 h-3" />
+                {profil.usual_place.split(',')[0]}
+              </div>
+            </div>
           </div>
+
+          <p className={`font-serif italic text-stone-600 leading-relaxed opacity-70 group-hover:opacity-100 transition-all duration-700 ${isLarge ? 'text-2xl' : 'text-lg'}`}>
+            « {profil.reformulated_story.substring(0, isLarge ? 180 : 100)}... »
+          </p>
+
+          <footer className="mt-auto pt-6 border-t border-stone-50 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-stone-200 uppercase tracking-widest">Dignité n°</span>
+              <span className="font-mono text-xs text-stone-400">BXL-{index + 101}</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-stone-900 font-extrabold text-[9px] uppercase tracking-[0.3em] group-hover:translate-x-2 transition-transform duration-500">
+              Son histoire <MoveRight className="w-4 h-4 text-blue-600" />
+            </div>
+          </footer>
         </div>
       </Link>
     </motion.div>
   );
 };
 
-export default ProfilCard;
+export default React.memo(ProfilCard);
