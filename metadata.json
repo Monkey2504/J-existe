@@ -1,0 +1,7 @@
+{
+  "name": "J'existe - Plateforme de Visibilité Sociale",
+  "description": "Une plateforme sobre et poétique permettant de donner une existence numérique et humaine aux personnes sans-abri à travers des récits reformulés par l'IA et des QR codes de contact.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
