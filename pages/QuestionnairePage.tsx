@@ -24,36 +24,70 @@ const QuestionnairePage: React.FC = () => {
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [cameraOuverte, setCameraOuverte] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const etape = ETAPES[etapeCourante];
 
   const toggleSpeech = () => {
-    const recognition = new (window as any).webkitSpeechRecognition();
-    recognition.lang = 'fr-FR';
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      const text = event.results[0][0].transcript;
-      setReponses(prev => ({ ...prev, [etape.field]: (prev[etape.field] || '') + ' ' + text }));
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      setErrorMsg("Désolé, la reconnaissance vocale n'est pas supportée par ce navigateur.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'fr-FR';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setErrorMsg(null);
+      };
+      
+      recognition.onresult = (event: any) => {
+        const text = event.results[0][0].transcript;
+        setReponses(prev => ({ ...prev, [etape.field]: (prev[etape.field] || '') + ' ' + text }));
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Erreur Speech:", event.error);
+        setIsListening(false);
+        setErrorMsg("Erreur lors de l'écoute. Assurez-vous d'avoir autorisé le micro.");
+      };
+
+      recognition.onend = () => setIsListening(false);
+
+      recognition.start();
+    } catch (e) {
+      console.error(e);
       setIsListening(false);
-    };
-    recognition.start();
+    }
   };
 
   const finaliserDossier = async () => {
+    if (!reponses.name || !reponses.raw_story) {
+      setErrorMsg("Veuillez remplir le nom et le récit avant de publier.");
+      return;
+    }
+
     setIsAnalysing(true);
+    setErrorMsg(null);
     try {
       const syntheseIA = await analyserProfilComplet(reponses.raw_story, reponses.image_url);
-      
-      const publicId = `${reponses.name.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
+      const publicId = `${(reponses.name || "anonyme").toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
       
       await sauvegarderProfil({
-        id: crypto.randomUUID(),
+        id: "", // Géré par le service
         publicId,
         name: reponses.name,
         image_url: reponses.image_url,
         raw_story: reponses.raw_story,
-        reformulated_story: syntheseIA,
-        needs: "Chargement des solutions locales...",
+        reformulated_story: syntheseIA || "Récit en cours de vérification...",
+        needs: "Besoins en cours d'indexation...",
         usual_place: "Localisation GPS partagée",
         is_public: true,
         is_archived: false,
@@ -63,8 +97,8 @@ const QuestionnairePage: React.FC = () => {
       
       navigate(`/p/${publicId}`);
     } catch (err) {
-      console.error(err);
-    } finally {
+      console.error("Erreur finaliserDossier:", err);
+      setErrorMsg("Échec de l'indexation. Vérifiez votre connexion.");
       setIsAnalysing(false);
     }
   };
@@ -90,7 +124,7 @@ const QuestionnairePage: React.FC = () => {
            <p className="text-stone-500 font-serif italic">{etape.subtitle}</p>
         </header>
 
-        <main className="min-h-[300px] flex items-center justify-center">
+        <main className="min-h-[300px] flex flex-col items-center justify-center space-y-4">
           {etape.type === 'text' ? (
             <div className="w-full relative">
               <textarea 
@@ -99,28 +133,50 @@ const QuestionnairePage: React.FC = () => {
                 className="w-full bg-transparent border-b-2 border-stone-800 text-white text-3xl font-serif py-4 focus:border-blue-600 outline-none"
                 placeholder="..."
               />
-              <button onClick={toggleSpeech} className={`absolute right-0 bottom-4 p-4 rounded-full ${isListening ? 'bg-red-600 animate-pulse' : 'bg-stone-800'}`}>
+              <button 
+                onClick={toggleSpeech} 
+                className={`absolute right-0 bottom-4 p-4 rounded-full transition-all ${isListening ? 'bg-red-600 animate-pulse scale-110' : 'bg-stone-800 hover:bg-stone-700'}`}
+                title="Dictée vocale"
+              >
                 {isListening ? <MicOff className="text-white" /> : <Mic className="text-white" />}
               </button>
             </div>
           ) : (
-            <div onClick={() => setCameraOuverte(true)} className="w-64 h-64 bg-stone-900 rounded-[3rem] border-2 border-dashed border-stone-700 flex items-center justify-center cursor-pointer overflow-hidden">
-              {reponses.image_url ? <img src={reponses.image_url} className="w-full h-full object-cover grayscale" /> : <Camera className="w-12 h-12 text-stone-700" />}
+            <div onClick={() => setCameraOuverte(true)} className="w-64 h-64 bg-stone-900 rounded-[3rem] border-2 border-dashed border-stone-700 flex items-center justify-center cursor-pointer overflow-hidden group">
+              {reponses.image_url ? (
+                <img src={reponses.image_url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" alt="Portrait" />
+              ) : (
+                <Camera className="w-12 h-12 text-stone-700 group-hover:text-blue-600 transition-colors" />
+              )}
             </div>
+          )}
+
+          {errorMsg && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest">
+              <AlertCircle className="w-3 h-3" /> {errorMsg}
+            </motion.div>
           )}
         </main>
 
-        <footer className="flex justify-between">
-          <button onClick={() => setEtapeCourante(e => e - 1)} disabled={etapeCourante === 0} className="text-stone-500 uppercase font-black text-[10px] tracking-widest">Retour</button>
+        <footer className="flex justify-between w-full">
+          <button 
+            onClick={() => { setEtapeCourante(e => e - 1); setErrorMsg(null); }} 
+            disabled={etapeCourante === 0} 
+            className="text-stone-500 uppercase font-black text-[10px] tracking-widest disabled:opacity-20"
+          >
+            Retour
+          </button>
           <button 
             onClick={() => etapeCourante === ETAPES.length - 1 ? finaliserDossier() : setEtapeCourante(e => e + 1)} 
-            className="bg-white px-10 py-4 rounded-full text-stone-950 font-black text-[10px] uppercase tracking-widest"
+            className="bg-white px-10 py-4 rounded-full text-stone-950 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-transform"
           >
             {etapeCourante === ETAPES.length - 1 ? 'PUBLIER L\'EXISTENCE' : 'SUIVANT'}
           </button>
         </footer>
       </div>
-      {cameraOuverte && <CameraCapture onCapture={img => setReponses({...reponses, image_url: img})} onClose={() => setCameraOuverte(false)} />}
+      <AnimatePresence>
+        {cameraOuverte && <CameraCapture onCapture={img => setReponses({...reponses, image_url: img})} onClose={() => setCameraOuverte(false)} />}
+      </AnimatePresence>
     </div>
   );
 };

@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
+import MobileNav from './MobileNav';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const localisation = useLocation();
@@ -90,7 +91,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               })}
             </nav>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button onClick={basculerTheme} className="p-2.5 rounded-full hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-stone-300 hover:text-stone-900 dark:hover:text-white" aria-label={`Passer au mode ${theme === 'clair' ? 'sombre' : 'clair'}`}>
                 {theme === 'clair' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
@@ -140,9 +141,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </AnimatePresence>
       </header>
 
-      <main id="contenu-principal" className="pt-20 outline-none" tabIndex={-1}>{children}</main>
+      <main id="contenu-principal" className="pt-20 pb-24 lg:pb-0 outline-none" tabIndex={-1}>{children}</main>
 
-      <footer className="bg-white dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800 mt-20" role="contentinfo">
+      <MobileNav />
+
+      <footer className="hidden lg:block bg-white dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800 mt-20" role="contentinfo">
         <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-8">
            <div className="flex items-center gap-4"><Logo className="w-10 h-10" /><span className="text-xl font-impact uppercase tracking-wider">J'existe</span></div>
            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">© {new Date().getFullYear()} J'existe — Registre de Visibilité Sociale • Bruxelles</p>

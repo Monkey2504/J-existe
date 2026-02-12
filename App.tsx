@@ -25,43 +25,41 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   
   return (
-    <ErrorBoundary>
-      <PageTransition>
-        <Suspense fallback={<LoadingOverlay message="Chargement..." showSpinner />}>
-          <Routes location={location}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/profiles" element={<ProfilesListingPage />} />
-            <Route path="/p/:publicId" element={<ProfileDetailPage />} />
-            
-            {/* Ressources */}
-            <Route path="/faq" element={<FAQPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/partners" element={<PartnersPage />} />
-            
-            {/* Routes Espace Pro (Ouvertes pour l'instance) */}
-            <Route path="/je-cree-ma-fiche" element={<QuestionnairePage />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/new" element={<EditProfilePage />} />
-            <Route path="/admin/edit/:publicId" element={<EditProfilePage />} />
-            
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </PageTransition>
-    </ErrorBoundary>
+    <PageTransition>
+      <Suspense fallback={<LoadingOverlay message="Accès au registre..." showSpinner />}>
+        <Routes location={location}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/profiles" element={<ProfilesListingPage />} />
+          <Route path="/p/:publicId" element={<ProfileDetailPage />} />
+          
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/partners" element={<PartnersPage />} />
+          
+          <Route path="/je-cree-ma-fiche" element={<QuestionnairePage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/new" element={<EditProfilePage />} />
+          <Route path="/admin/edit/:publicId" element={<EditProfilePage />} />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </PageTransition>
   );
 };
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <AuthProvider>
-        <Layout>
-          <AppContent />
-        </Layout>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <Layout>
+            <AppContent />
+          </Layout>
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   );
 };
 

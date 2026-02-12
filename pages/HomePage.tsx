@@ -12,7 +12,7 @@ const HomePage: React.FC = () => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="relative min-h-screen bg-[#f8f7f4] flex flex-col items-center justify-center overflow-hidden"
+      className="relative min-h-[calc(100vh-80px)] bg-[#f8f7f4] flex flex-col items-center justify-center overflow-hidden"
     >
       <motion.div 
         className="absolute inset-0 z-0 pointer-events-none opacity-20"
@@ -23,7 +23,7 @@ const HomePage: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-7xl px-6 py-20">
+      <div className="relative z-10 w-full max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
         <motion.div
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -35,7 +35,7 @@ const HomePage: React.FC = () => {
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               transition={{ delay: 0.2, duration: 1 }}
-              className="block text-[10px] font-extrabold uppercase tracking-[0.6em] text-stone-400 mb-2"
+              className="block text-[8px] sm:text-[10px] font-extrabold uppercase tracking-[0.4em] sm:tracking-[0.6em] text-stone-400 mb-2"
             >
               Bruxelles • Human Visibility
             </motion.span>
@@ -44,37 +44,39 @@ const HomePage: React.FC = () => {
           <h1 
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onTouchStart={() => setIsHovered(true)}
+            onTouchEnd={() => setIsHovered(false)}
             onClick={() => navigate('/profiles')}
-            className="font-impact text-[28vw] md:text-[22vw] leading-[0.75] tracking-tighter text-stone-900 cursor-pointer select-none transition-all duration-700 hover:scale-[1.01] active:scale-95"
+            className="font-impact text-[32vw] sm:text-[22vw] leading-[0.75] tracking-tighter text-stone-900 cursor-pointer select-none transition-all duration-700 hover:scale-[1.01] active:scale-95"
           >
             J'EXISTE
           </h1>
 
-          <div className="mt-20 flex flex-col items-center gap-8 w-full">
+          <div className="mt-12 sm:mt-20 flex flex-col items-center gap-8 w-full">
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="max-w-md text-center font-serif text-xl md:text-2xl italic text-stone-500 leading-relaxed mb-4"
+              className="max-w-xs sm:max-w-md text-center font-serif text-lg sm:text-2xl italic text-stone-500 leading-relaxed mb-4"
             >
               "Derrière chaque regard croisé dans les rues de Bruxelles se cache une épopée."
             </motion.p>
             
-            <div className="flex flex-col sm:flex-row gap-6">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 w-full sm:w-auto px-6 sm:px-0">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/profiles')}
-                className="group relative px-12 py-6 bg-stone-900 text-white rounded-full overflow-hidden transition-all hover:bg-blue-700 shadow-2xl"
+                className="group relative px-12 py-5 sm:py-6 bg-stone-900 text-white rounded-full overflow-hidden transition-all hover:bg-blue-700 shadow-2xl w-full sm:w-auto"
               >
-                <span className="relative z-10 font-black text-xs uppercase tracking-widest">Voir l'Index</span>
+                <span className="relative z-10 font-black text-[10px] sm:text-xs uppercase tracking-widest">Voir l'Index</span>
               </motion.button>
             </div>
           </div>
         </motion.div>
       </div>
 
-      <div className="absolute bottom-12 right-12 text-right hidden md:block">
+      <div className="absolute bottom-12 right-12 text-right hidden lg:block">
         <div className="text-[10px] font-black text-stone-300 uppercase tracking-tighter mb-1">Bruxelles</div>
         <div className="text-xs font-mono text-stone-400">50.8503° N, 4.3517° E</div>
       </div>

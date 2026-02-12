@@ -8,9 +8,6 @@ import ProfilCard from '../components/ProfilCard.tsx';
 import { obtenirProfilsPublics } from '../services/mockSupabase.ts';
 import { Profil, LieuGroupe } from '../types.ts';
 
-/**
- * Hook personnalisé pour charger et filtrer la liste des profils.
- */
 const useGestionListeProfils = () => {
   const [listeProfils, setListeProfils] = useState<Profil[]>([]);
   const [chargement, setChargement] = useState(true);
@@ -18,7 +15,6 @@ const useGestionListeProfils = () => {
   const [recherche, setRecherche] = useState('');
   const [rechercheDebouncee, setRechercheDebouncee] = useState('');
 
-  // Logique de debounce pour éviter les calculs à chaque frappe
   useEffect(() => {
     const timer = setTimeout(() => setRechercheDebouncee(recherche), 300);
     return () => clearTimeout(timer);
@@ -29,7 +25,7 @@ const useGestionListeProfils = () => {
       setChargement(true);
       const donnees = await obtenirProfilsPublics();
       if (signal?.aborted) return;
-      setListeProfils(donnees);
+      setListeProfils(donnees || []);
     } catch (err) {
       if (signal?.aborted) return;
       setErreur('Défaillance du registre central.');
@@ -46,20 +42,28 @@ const useGestionListeProfils = () => {
 
   const profilsFiltres = useMemo(() => {
     const terme = rechercheDebouncee.toLowerCase();
-    return listeProfils.filter(p => p.name.toLowerCase().includes(terme) || p.usual_place.toLowerCase().includes(terme));
+    return listeProfils.filter(p => {
+      if (!p) return false;
+      const nom = (p.name || "").toLowerCase();
+      const lieu = (p.usual_place || "").toLowerCase();
+      return nom.includes(terme) || lieu.includes(terme);
+    });
   }, [listeProfils, rechercheDebouncee]);
 
   const groupes = useMemo<LieuGroupe[]>(() => {
     const map = new Map<string, LieuGroupe>();
     profilsFiltres.forEach(p => {
-      const lieu = p.usual_place.split(',')[0].trim();
+      if (!p) return;
+      const lieuPlein = p.usual_place || "Inconnu";
+      const lieu = lieuPlein.split(',')[0].trim() || "Bruxelles";
+      
       if (!map.has(lieu)) {
         map.set(lieu, { nom: lieu, description: '', profils: [], count: 0, urgentCount: 0 });
       }
       const g = map.get(lieu)!;
       g.profils.push(p);
       g.count++;
-      if (p.urgent_needs?.length) g.urgentCount++;
+      if (p.urgent_needs && p.urgent_needs.length > 0) g.urgentCount++;
     });
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [profilsFiltres]);
@@ -84,7 +88,6 @@ const HeaderListe = React.memo(() => (
     </div>
   </header>
 ));
-HeaderListe.displayName = 'HeaderListe';
 
 const BarreRecherche = React.memo(({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
   <div className="sticky top-24 z-40 px-6 py-4 flex justify-center pointer-events-none">
@@ -102,7 +105,6 @@ const BarreRecherche = React.memo(({ value, onChange }: { value: string; onChang
     </div>
   </div>
 ));
-BarreRecherche.displayName = 'BarreRecherche';
 
 const EnteteGroupe = React.memo(({ group }: { group: LieuGroupe }) => (
   <div className="mb-20 flex flex-col items-center">
@@ -119,7 +121,6 @@ const EnteteGroupe = React.memo(({ group }: { group: LieuGroupe }) => (
     </div>
   </div>
 ));
-EnteteGroupe.displayName = 'EnteteGroupe';
 
 const ProfilesListingPage: React.FC = () => {
   const { groupes, chargement, erreur, recherche, setRecherche } = useGestionListeProfils();
@@ -177,5 +178,4 @@ const ProfilesListingPage: React.FC = () => {
   );
 };
 
-ProfilesListingPage.displayName = 'ProfilesListingPage';
 export default React.memo(ProfilesListingPage);

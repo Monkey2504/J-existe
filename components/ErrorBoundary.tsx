@@ -1,34 +1,42 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
-  children: ReactNode;
+  /** Les composants enfants à surveiller par la frontière d'erreur */
+  children?: ReactNode;
 }
 
 interface State {
+  /** État indiquant si une erreur a été capturée */
   hasError: boolean;
 }
 
 /**
  * Composant de secours pour capturer les erreurs inattendues dans l'arborescence des composants.
- * Fixed: Explicitly extending React.Component and using a constructor to ensure 'this.props' is correctly typed.
  */
-class ErrorBoundary extends React.Component<Props, State> {
+// Comment: Explicitly extending Component and declaring state ensures that inherited properties like 'state' and 'props' are correctly recognized by the TypeScript compiler.
+class ErrorBoundary extends Component<Props, State> {
+  // Comment: Explicitly declare the state property to satisfy the compiler's check for property existence on the ErrorBoundary type.
+  public state: State = {
+    hasError: false
+  };
+
   constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false
-    };
   }
 
   public static getDerivedStateFromError(_: Error): State {
+    // Comment: Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Comment: Catch and log errors from the child component tree.
     console.error("Uncaught error:", error, errorInfo);
   }
 
   public render(): ReactNode {
+    // Comment: Accessing 'state' which is inherited from Component and now explicitly recognized.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
@@ -48,7 +56,7 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Correctement accès aux props via la classe parente React.Component
+    // Comment: Accessing 'props' which is inherited from Component and now explicitly recognized.
     return this.props.children;
   }
 }

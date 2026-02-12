@@ -40,8 +40,39 @@ export const analyserProfilComplet = async (recitBrut: string, base64Image?: str
 };
 
 /**
+ * Génération d'un portrait par IA basé sur le récit
+ */
+export const genererImageProfil = async (recit: string, nom: string) => {
+  try {
+    const prompt = `A dignified black and white street photography portrait of a person named ${nom}. 
+    Context: ${recit.substring(0, 200)}. 
+    Style: Professional documentary photography, 35mm film grain, cinematic lighting, focused on human dignity, high contrast, realistic features. 
+    Avoid stereotypes, focus on the gaze.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: [{ text: prompt }] },
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1"
+        }
+      }
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Erreur génération image:", error);
+    return null;
+  }
+};
+
+/**
  * Recherche de solutions d'aide avec Grounding Google Search.
- * Retourne la réponse complète pour permettre l'extraction des URLs.
  */
 export const trouverSolutionsAide = async (besoin: string, localisation: string) => {
   const model = 'gemini-3-flash-preview';
