@@ -122,11 +122,30 @@ const QuestionnairePage: React.FC = () => {
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-6 sm:p-12">
       <div className="w-full max-w-2xl">
         
-        {/* Progress bar */}
+        {/* Progress bar interactive */}
         <div className="flex gap-2 mb-20">
-          {STEPS.map((_, i) => (
-            <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-500 ${i <= currentStep ? 'bg-blue-600' : 'bg-stone-800'}`} />
-          ))}
+          {STEPS.map((_, i) => {
+            const isPast = i < currentStep;
+            const isCurrent = i === currentStep;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => isPast && setCurrentStep(i)}
+                disabled={!isPast}
+                className={`h-1 flex-1 rounded-full transition-all duration-500 relative group ${
+                  isPast || isCurrent ? 'bg-blue-600' : 'bg-stone-800'
+                } ${isPast ? 'cursor-pointer hover:h-2' : 'cursor-default'}`}
+                title={isPast ? `Revenir à : ${STEPS[i].title}` : undefined}
+              >
+                {isPast && (
+                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-black text-blue-600 uppercase tracking-widest whitespace-nowrap">
+                    Étape {i + 1}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <AnimatePresence mode="wait">

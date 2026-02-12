@@ -1,4 +1,3 @@
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
@@ -9,7 +8,8 @@ interface State {
   hasError: boolean;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+// Fixed: Explicitly extend React.Component to ensure props are correctly recognized by TypeScript
+class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false
   };
@@ -22,7 +22,7 @@ class ErrorBoundary extends Component<Props, State> {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  public render() {
+  public render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
@@ -42,6 +42,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
+    // Access children through this.props which is now correctly defined via React.Component
     return this.props.children;
   }
 }

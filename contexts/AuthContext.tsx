@@ -45,7 +45,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     error: null
   });
 
-  const [sessionTimer, setSessionTimer] = useState<NodeJS.Timeout | null>(null);
+  // Fixed: use any to avoid NodeJS namespace error in browser environment
+  const [sessionTimer, setSessionTimer] = useState<any>(null);
 
   // Initialisation : vérifier la session existante
   useEffect(() => {
