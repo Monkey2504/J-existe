@@ -1,9 +1,10 @@
 
 import React from 'react';
-import { Profile } from '../types';
+// Fixed: Corrected type name according to types.ts
+import { Profil } from '../types';
 import { MapPin, ExternalLink } from 'lucide-react';
 
-const StoryPreview: React.FC<{ profile: Profile }> = ({ profile }) => {
+const StoryPreview: React.FC<{ profile: Profil }> = ({ profile }) => {
   return (
     <div className="p-8 border-2 border-dashed border-stone-200 rounded-3xl bg-stone-50">
       <div className="max-w-xl mx-auto space-y-8 text-center">

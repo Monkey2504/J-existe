@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
@@ -7,193 +7,108 @@ import {
   Shield, 
   Menu, 
   X, 
-  Heart, 
   Sparkles,
-  MapPin,
-  Eye,
-  LogOut,
-  Settings,
-  User as UserIcon,
   Bell,
-  Search,
-  ChevronDown,
   Sun,
-  Moon,
-  Globe,
-  Lock,
-  HelpCircle,
-  Unlock
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('theme');
-    return (saved as 'light' | 'dark') || 'light';
+  const localisation = useLocation();
+  const navigation = useNavigate();
+  const { logout } = useAuth();
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const [estDefile, setEstDefile] = useState(false);
+  const [afficherAlertes, setAfficherAlertes] = useState(false);
+  const [theme, setTheme] = useState<'clair' | 'sombre'>(() => {
+    const sauvegarde = localStorage.getItem('theme_jexiste');
+    return (sauvegarde as 'clair' | 'sombre') || 'clair';
   });
   
-  const notifications = [
-    { id: 1, title: 'Nouveau profil', message: 'Jean a été ajouté par Marie', time: 'Il y a 5 min', read: false },
-    { id: 2, title: 'Besoin urgent', message: 'Fatima a besoin de médicaments', time: 'Il y a 2 heures', read: true },
-    { id: 3, title: 'Statistiques', message: '15 nouvelles vues cette semaine', time: 'Il y a 1 jour', read: true },
+  const alertes = [
+    { id: 1, titre: 'Nouveau profil', message: 'Jean a été ajouté au registre', temps: '5 min', lu: false },
+    { id: 2, titre: 'Besoin urgent', message: 'Ahmed signale un besoin critique', temps: '2 heures', lu: true },
   ];
 
-  const unreadNotifications = notifications.filter(n => !n.read).length;
+  const alertesNonLues = alertes.filter(a => !a.lu).length;
 
-  // Navigation toujours visible pour l'espace pro démo
-  const navItems = [
-    { path: '/', label: 'Accueil', icon: Home, exact: true },
-    { path: '/profiles', label: 'Index Public', icon: Users },
-    { path: '/admin', label: 'Espace Pro', icon: Shield },
-    { path: '/admin/new', label: 'Nouveau Profil', icon: Sparkles },
+  const elementsNav = [
+    { chemin: '/', etiquette: 'Accueil', icone: Home, exact: true },
+    { chemin: '/profiles', etiquette: 'Index Public', icone: Users },
+    { chemin: '/admin', etiquette: 'Console Pro', icone: Shield },
+    { chemin: '/admin/new', etiquette: 'Nouveau Dossier', icone: Sparkles },
   ];
 
-  const isActive = (path: string, exact: boolean = false) => {
-    return exact ? location.pathname === path : location.pathname.startsWith(path);
-  };
+  const estActif = useCallback((chemin: string, exact: boolean = false) => {
+    return exact ? localisation.pathname === chemin : localisation.pathname.startsWith(chemin);
+  }, [localisation.pathname]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const gererDefilement = () => setEstDefile(window.scrollY > 20);
+    window.addEventListener('scroll', gererDefilement, { passive: true });
+    return () => window.removeEventListener('scroll', gererDefilement);
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
+    document.documentElement.classList.toggle('dark', theme === 'sombre');
+    localStorage.setItem('theme_jexiste', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-    setIsMenuOpen(false);
-  };
-
-  const userMenuItems = [
-    { label: 'Mon profil', icon: UserIcon, onClick: () => navigate('/admin/profile') },
-    { label: 'Paramètres', icon: Settings, onClick: () => navigate('/admin/settings') },
-    { label: 'Déconnexion', icon: LogOut, onClick: handleLogout, danger: true },
-  ];
+  const basculerTheme = useCallback(() => {
+    setTheme(prev => prev === 'clair' ? 'sombre' : 'clair');
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-300">
-      {/* Header */}
-      <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-lg border-b border-gray-200 dark:border-gray-700'
-            : 'bg-transparent'
-        }`}
-      >
+    <div className="min-h-screen bg-[#fdfcfb] dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors duration-300">
+      <a href="#contenu-principal" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-6 focus:py-4 focus:bg-blue-600 focus:text-white focus:rounded-xl focus:font-black focus:uppercase focus:text-[10px] focus:tracking-widest">Passer au contenu principal</a>
+
+      <header role="banner" className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${estDefile ? 'bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl shadow-lg border-b border-stone-200 dark:border-stone-800' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
-            {/* Logo */}
             <div className="flex items-center">
-              <Link to="/" className="flex items-center space-x-3">
-                <Logo className="w-12 h-12" />
+              <Link to="/" className="flex items-center space-x-3" aria-label="Retour à l'accueil">
+                <Logo className="w-10 h-10" />
                 <div className="hidden sm:block">
-                  <span className="text-3xl font-impact text-stone-900 uppercase tracking-tighter">
-                    J'existe
-                  </span>
-                  <div className="text-[9px] text-stone-400 font-black uppercase tracking-widest leading-none">
-                    Bruxelles • Social Registry
-                  </div>
+                  <span className="text-2xl font-impact text-stone-900 dark:text-white uppercase tracking-tighter">J'existe</span>
+                  <div className="text-[8px] text-stone-400 font-black uppercase tracking-widest leading-none">Registre Social • Bruxelles</div>
                 </div>
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center space-x-1">
-              {navItems.map((item) => {
-                const active = isActive(item.path, item.exact);
+            <nav className="hidden lg:flex items-center space-x-1" role="navigation">
+              {elementsNav.map((item) => {
+                const actif = estActif(item.chemin, item.exact);
                 return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-full transition-all group ${
-                      active
-                        ? 'bg-stone-900 text-white shadow-xl'
-                        : 'text-stone-400 hover:text-stone-900 hover:bg-stone-50'
-                    }`}
-                  >
-                    <item.icon className={`w-4 h-4 ${active ? 'text-blue-400' : 'group-hover:text-blue-600'}`} />
-                    <span className="font-black text-[10px] uppercase tracking-widest">{item.label}</span>
+                  <Link key={item.chemin} to={item.chemin} aria-current={actif ? 'page' : undefined} className={`flex items-center space-x-2 px-6 py-2.5 rounded-full transition-all group ${actif ? 'bg-stone-900 dark:bg-white dark:text-stone-900 text-white shadow-xl' : 'text-stone-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-50 dark:hover:bg-stone-800'}`}>
+                    <item.icone className={`w-4 h-4 ${actif ? 'text-blue-400' : 'group-hover:text-blue-600'}`} />
+                    <span className="font-black text-[9px] uppercase tracking-[0.2em]">{item.etiquette}</span>
                   </Link>
                 );
               })}
             </nav>
 
-            {/* Right side actions */}
             <div className="flex items-center space-x-4">
-              {/* Theme toggle */}
-              <button
-                onClick={toggleTheme}
-                className="p-2.5 rounded-full hover:bg-stone-50 transition-colors text-stone-300 hover:text-stone-900"
-                aria-label="Changer de thème"
-              >
-                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              <button onClick={basculerTheme} className="p-2.5 rounded-full hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-stone-300 hover:text-stone-900 dark:hover:text-white" aria-label={`Passer au mode ${theme === 'clair' ? 'sombre' : 'clair'}`}>
+                {theme === 'clair' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
 
-              {/* Notifications */}
               <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2.5 rounded-full hover:bg-stone-50 transition-colors text-stone-300 hover:text-stone-900 relative"
-                  aria-label="Notifications"
-                >
+                <button onClick={() => setAfficherAlertes(!afficherAlertes)} className="p-2.5 rounded-full hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-stone-300 hover:text-stone-900 dark:hover:text-white relative" aria-label="Alertes système" aria-expanded={afficherAlertes} aria-haspopup="true">
                   <Bell className="w-5 h-5" />
-                  {unreadNotifications > 0 && (
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full border-2 border-white" />
-                  )}
+                  {alertesNonLues > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full border-2 border-white dark:border-stone-900" />}
                 </button>
-
                 <AnimatePresence>
-                  {showNotifications && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-4 w-80 bg-white rounded-3xl shadow-2xl border border-stone-100 overflow-hidden z-50"
-                    >
-                      <div className="p-6 border-b border-stone-50">
-                        <h3 className="font-impact text-xl text-stone-900">ALERTES SYSTÈME</h3>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`p-5 border-b border-stone-50 hover:bg-stone-50 cursor-pointer transition-colors ${
-                              !notification.read ? 'bg-blue-50/30' : ''
-                            }`}
-                          >
-                            <div className="flex items-start space-x-4">
-                              <div className="shrink-0 w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-stone-100">
-                                <Bell className="w-4 h-4 text-stone-400" />
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-bold text-sm text-stone-900">{notification.title}</h4>
-                                <p className="text-xs text-stone-500 mt-1 font-serif italic">
-                                  {notification.message}
-                                </p>
-                                <p className="text-[9px] font-black uppercase text-stone-300 mt-3 tracking-widest">
-                                  {notification.time}
-                                </p>
-                              </div>
-                            </div>
+                  {afficherAlertes && (
+                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute right-0 mt-4 w-72 bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-100 dark:border-stone-800 overflow-hidden z-50">
+                      <div className="p-4 border-b border-stone-50 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/50"><h3 className="font-impact text-lg uppercase tracking-wider">Alertes</h3></div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {alertes.map((a) => (
+                          <div key={a.id} className="p-4 border-b border-stone-50 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                            <h4 className="font-bold text-xs text-stone-900 dark:text-white">{a.titre}</h4>
+                            <p className="text-[10px] text-stone-500 mt-1 font-serif italic">{a.message}</p>
                           </div>
                         ))}
                       </div>
@@ -202,163 +117,35 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </AnimatePresence>
               </div>
 
-              {/* Status démo */}
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-full border border-amber-100">
-                <Unlock className="w-3 h-3" />
-                <span className="text-[9px] font-black uppercase tracking-widest">Mode Démo</span>
-              </div>
-
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="lg:hidden p-2.5 rounded-full hover:bg-stone-50 text-stone-900 transition-colors"
-                aria-label="Menu"
-              >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              <button onClick={() => setMenuOuvert(!menuOuvert)} className="lg:hidden p-2.5 rounded-full hover:bg-stone-50 dark:hover:bg-stone-800 text-stone-900 dark:text-white" aria-label="Menu principal" aria-expanded={menuOuvert}>
+                {menuOuvert ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Mobile menu */}
         <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-white border-t border-stone-50 overflow-hidden"
-            >
-              <div className="px-6 py-8 space-y-4">
-                {navItems.map((item) => {
-                  const active = isActive(item.path, item.exact);
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setIsMenuOpen(false)}
-                      className={`flex items-center space-x-4 px-6 py-4 rounded-2xl transition-all ${
-                        active
-                          ? 'bg-stone-900 text-white shadow-lg'
-                          : 'bg-stone-50 text-stone-400'
-                      }`}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span className="font-black text-xs uppercase tracking-widest">{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
+          {menuOuvert && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="lg:hidden bg-white dark:bg-stone-900 border-b border-stone-100 dark:border-stone-800 overflow-hidden">
+              <nav className="p-6 space-y-4" role="navigation">
+                {elementsNav.map((item) => (
+                  <Link key={item.chemin} to={item.chemin} onClick={() => setMenuOuvert(false)} className="flex items-center space-x-4 p-4 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800">
+                    <item.icone className="w-5 h-5 text-blue-600" />
+                    <span className="font-impact text-xl uppercase tracking-wider">{item.etiquette}</span>
+                  </Link>
+                ))}
+              </nav>
             </motion.div>
           )}
         </AnimatePresence>
       </header>
 
-      {/* Main content */}
-      <main className="pt-20">
-        {children}
-      </main>
+      <main id="contenu-principal" className="pt-20 outline-none" tabIndex={-1}>{children}</main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-stone-100 mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-16">
-            {/* Brand */}
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <Logo className="w-14 h-14" />
-                <div>
-                  <span className="text-3xl font-impact text-stone-900 uppercase leading-none">J'existe</span>
-                  <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest mt-1">Plateforme de Visibilité</p>
-                </div>
-              </div>
-              <p className="font-serif italic text-lg text-stone-500 leading-relaxed">
-                Donner une voix à celles et ceux qui vivent l'invisibilité dans les rues de Bruxelles. 
-                Parce que chaque existence mérite d'être inscrite.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div>
-              <h3 className="font-impact text-xl text-stone-900 uppercase tracking-tight mb-8">Navigation</h3>
-              <ul className="space-y-4">
-                <li>
-                  <Link to="/" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    Accueil
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/profiles" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    Index des Profils
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/admin" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    Espace Travailleur Social
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Resources */}
-            <div>
-              <h3 className="font-impact text-xl text-stone-900 uppercase tracking-tight mb-8">Ressources</h3>
-              <ul className="space-y-4">
-                <li>
-                  <Link to="/faq" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    FAQ
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/privacy" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    Confidentialité
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/terms" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    Mentions Légales
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/partners" className="text-stone-400 hover:text-stone-900 font-black text-[10px] uppercase tracking-widest transition-colors">
-                    Partenaires
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Contact & Social */}
-            <div className="space-y-8">
-              <h3 className="font-impact text-xl text-stone-900 uppercase tracking-tight">Contact</h3>
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest">Plateforme Opérationnelle</p>
-                <a
-                  href="mailto:contact@jexiste.org"
-                  className="text-2xl font-serif font-bold italic text-stone-900 hover:text-blue-600 transition-colors"
-                >
-                  contact@jexiste.org
-                </a>
-              </div>
-              <div className="flex space-x-4 pt-4">
-                <button className="p-3 bg-stone-50 rounded-xl hover:bg-stone-900 hover:text-white transition-all">
-                  <Globe className="w-5 h-5" />
-                </button>
-                <button className="p-3 bg-stone-50 rounded-xl hover:bg-stone-900 hover:text-white transition-all">
-                  <HelpCircle className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-24 pt-10 border-t border-stone-50 flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">
-              © {new Date().getFullYear()} J'existe — Registre de Visibilité Sociale • Bruxelles
-            </p>
-            <div className="flex items-center gap-2 text-stone-200">
-               <Heart className="w-3 h-3 fill-current text-red-500" />
-               <span className="text-[9px] font-black uppercase tracking-[0.3em]">Restaurer l'Invisibilité</span>
-            </div>
-          </div>
+      <footer className="bg-white dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800 mt-20" role="contentinfo">
+        <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-8">
+           <div className="flex items-center gap-4"><Logo className="w-10 h-10" /><span className="text-xl font-impact uppercase tracking-wider">J'existe</span></div>
+           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">© {new Date().getFullYear()} J'existe — Registre de Visibilité Sociale • Bruxelles</p>
         </div>
       </footer>
     </div>

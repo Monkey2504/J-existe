@@ -1,69 +1,52 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const INSTRUCTION_GREFFIER = `Tu es un GREFFIER SOCIAL FACTUEL. Ton but est de créer une synthèse administrative d'un récit de vie.
 
-export const reformulateStory = async (rawStory: string): Promise<string> => {
-  if (!rawStory || rawStory.trim().length < 20) {
-    throw new Error("Récit trop court.");
-  }
+INTERDICTIONS ABSOLUES :
+1. NE JAMAIS utiliser d'adjectifs psychologiques (ex: "déprimé", "instable", "triste").
+2. NE JAMAIS interpréter des signes physiques comme des addictions (ex: "yeux rouges" ne devient PAS "alcoolique").
+3. NE JAMAIS inventer de passé professionnel. Si non mentionné, écris "Parcours antérieur non documenté".
+4. NE JAMAIS porter de jugement de valeur.
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Tu es un enquêteur social spécialisé dans le recensement de rue. Tu dois rédiger un compte-rendu de situation DÉTAILLÉ et LONG.
-      
-      RÈGLES STRICTES :
-      1. STYLE ADMINISTRATIF ET CLINIQUE. Aucun lyrisme, aucune métaphore, aucune poésie.
-      2. DÉVELOPPE LES FAITS : Ne te contente pas de mots-clés. Fais des phrases complètes, froides et informatives.
-      3. STRUCTURE : Décris précisément le parcours professionnel, les causes juridiques ou économiques de la chute, et la réalité matérielle actuelle (santé, environnement, survie).
-      4. TON : Neutre, objectif, comme un rapport de police ou de CPAS.
-      5. LONGUEUR : Entre 800 et 1200 caractères.
-      
-      TÉMOIGNAGE BRUT : ${rawStory}`,
-      config: { 
-        temperature: 0.3,
-        maxOutputTokens: 1000 
-      }
-    });
-    return response.text?.trim().replace(/^["']|["']$/g, '') || "";
-  } catch (err) {
-    throw new Error("Erreur reformulation.");
-  }
+STRUCTURE OBLIGATOIRE :
+- ÉLÉMENTS DE PARCOURS : (Faits datés ou métiers occupés)
+- POINT DE RUPTURE : (L'événement déclencheur matériel de la rue)
+- SITUATION MATÉRIELLE ACTUELLE : (Zone d'occupation et besoins identifiés)
+
+Style : Clinique, neutre, sans aucune empathie feinte ou misérabilisme.`;
+
+const executerRequeteGemini = async (prompt: string, instructionSysteme: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      systemInstruction: instructionSysteme,
+      temperature: 0, // Désactivation totale de la créativité pour rester sur les faits
+      maxOutputTokens: 600,
+      topP: 0.1
+    }
+  });
+  return response.text?.trim() || "";
 };
 
-export const synthesizeQuestionnaire = async (answers: {
-  trigger: string;
-  dailyHardship: string;
-  background: string;
-  location: string;
+export const reformulerRecit = async (recitBrut: string): Promise<string> => {
+  if (!recitBrut || recitBrut.trim().length < 20) throw new Error("Contenu insuffisant.");
+  return await executerRequeteGemini(`Reformule ces notes de terrain : ${recitBrut}`, INSTRUCTION_GREFFIER);
+};
+
+export const synthetiserQuestionnaire = async (reponses: {
+  declencheur: string;
+  difficultes: string;
+  parcours: string;
+  localisation: string;
 }): Promise<string> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Tu rédiges une synthèse de dossier social approfondie pour une base de données d'urgence. 
-      Rédige un texte LONG et EXHAUSTIF à partir des données fournies.
-      
-      RÈGLES :
-      1. STYLE DIRECT ET FACTUEL. Pas de pitié artificielle, pas d'adjectifs de style.
-      2. ANALYSE : Articule les réponses pour expliquer la trajectoire de la personne.
-      3. PRÉCISION : Détaille la vie d'avant, le mécanisme précis de rupture et les conditions de survie actuelles.
-      4. LONGUEUR : Vise 1000 caractères.
-      
-      Données récoltées :
-      - Antécédents : ${answers.background}
-      - Mécanisme de rupture : ${answers.trigger}
-      - État de précarité quotidien : ${answers.dailyHardship}
-      - Zone de présence : ${answers.location}
-      
-      Format : Rapport social professionnel, sans fioritures littéraires.`,
-      config: { 
-        temperature: 0.3,
-        maxOutputTokens: 1000 
-      }
-    });
-    return response.text?.trim().replace(/^["']|["']$/g, '') || "";
-  } catch (err) {
-    throw new Error("Erreur synthèse.");
-  }
+  const prompt = `Synthétise ces faits bruts : 
+  - Passé : ${reponses.parcours}
+  - Rupture : ${reponses.declencheur}
+  - Actuel : ${reponses.difficultes}
+  - Zone : ${reponses.localisation}`;
+  
+  return await executerRequeteGemini(prompt, INSTRUCTION_GREFFIER);
 };

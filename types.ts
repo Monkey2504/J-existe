@@ -1,6 +1,6 @@
 
-// Profile related types
-export interface Profile {
+// Types liés aux profils
+export interface Profil {
   id: string;
   publicId: string;
   name: string;
@@ -24,53 +24,53 @@ export interface Profile {
 export interface LieuGroupe {
   nom: string;
   description: string;
-  profils: Profile[];
+  profils: Profil[];
   count: number;
   urgentCount: number;
 }
 
-// User & Auth related types
-export interface User {
+// Types liés à l'utilisateur et à l'authentification
+export interface Utilisateur {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'social_worker' | 'viewer';
+  role: 'admin' | 'travailleur_social' | 'observateur';
   created_at: string;
   last_login: string;
 }
 
-export interface AuthState {
+export interface EtatAuthentification {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: User | null;
+  user: Utilisateur | null;
   error: string | null;
 }
 
-export interface LoginCredentials {
+export interface IdentifiantsConnexion {
   email: string;
   password?: string;
 }
 
-export interface RegisterData {
+export interface DonneesInscription {
   email: string;
   password?: string;
   name: string;
 }
 
-export interface AuthResponse {
+export interface ReponseAuthentification {
   success: boolean;
-  user?: User;
+  user?: Utilisateur;
   token?: string;
   error?: string;
   message?: string;
 }
 
-export interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<AuthResponse>;
+export interface TypeContexteAuthentification extends EtatAuthentification {
+  login: (credentials: IdentifiantsConnexion) => Promise<ReponseAuthentification>;
   logout: () => void;
-  register: (data: RegisterData) => Promise<AuthResponse>;
-  updateUser: (updates: Partial<User>) => Promise<AuthResponse>;
-  hasRole: (role: User['role'] | User['role'][]) => boolean;
+  register: (data: DonneesInscription) => Promise<ReponseAuthentification>;
+  updateUser: (updates: Partial<Utilisateur>) => Promise<ReponseAuthentification>;
+  hasRole: (role: Utilisateur['role'] | Utilisateur['role'][]) => boolean;
   refreshSession: () => void;
   resetSession: () => void;
 }

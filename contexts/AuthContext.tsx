@@ -1,8 +1,11 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { User, AuthState, AuthContextType, LoginCredentials, RegisterData, AuthResponse } from '../types';
+// Fixed: Corrected type names imported from types.ts
+import { Utilisateur, EtatAuthentification, TypeContexteAuthentification, IdentifiantsConnexion, DonneesInscription, ReponseAuthentification } from '../types';
 
 // Données mock pour la démo
-const MOCK_USERS: User[] = [
+// Fixed: Aligned roles with the Utilisateur type definition
+const MOCK_USERS: Utilisateur[] = [
   {
     id: '1',
     email: 'admin@jexiste.org',
@@ -15,7 +18,7 @@ const MOCK_USERS: User[] = [
     id: '2',
     email: 'social@jexiste.org',
     name: 'Travailleur Social',
-    role: 'social_worker',
+    role: 'travailleur_social',
     created_at: '2024-01-15',
     last_login: new Date().toISOString()
   },
@@ -23,7 +26,7 @@ const MOCK_USERS: User[] = [
     id: '3',
     email: 'viewer@jexiste.org',
     name: 'Observateur',
-    role: 'viewer',
+    role: 'observateur',
     created_at: '2024-02-01',
     last_login: new Date().toISOString()
   }
@@ -35,10 +38,12 @@ const USER_DATA_KEY = 'jexiste_user_data';
 const SESSION_TIMEOUT_KEY = 'jexiste_session_timeout';
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Fixed: Using the correct Context Type
+const AuthContext = createContext<TypeContexteAuthentification | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>({
+  // Fixed: Using the correct State Type
+  const [authState, setAuthState] = useState<EtatAuthentification>({
     isAuthenticated: false,
     isLoading: true,
     user: null,
@@ -65,7 +70,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
           }
 
-          const user: User = JSON.parse(userData);
+          const user: Utilisateur = JSON.parse(userData);
           
           // Mettre à jour le dernier login
           const updatedUser = { ...user, last_login: new Date().toISOString() };
@@ -125,7 +130,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     startSessionTimer(newTimeout);
   }, [startSessionTimer]);
 
-  const login = useCallback(async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  // Fixed: Using the correct response type
+  const login = useCallback(async (credentials: IdentifiantsConnexion): Promise<ReponseAuthentification> => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
@@ -193,7 +199,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [startSessionTimer]);
 
-  const register = useCallback(async (data: RegisterData): Promise<AuthResponse> => {
+  // Fixed: Using the correct response type
+  const register = useCallback(async (data: DonneesInscription): Promise<ReponseAuthentification> => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
@@ -207,11 +214,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // Créer un nouvel utilisateur
-      const newUser: User = {
+      const newUser: Utilisateur = {
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         email: data.email,
         name: data.name,
-        role: 'viewer', // Par défaut, rôle viewer
+        role: 'observateur', // Par défaut, rôle observateur
         created_at: new Date().toISOString(),
         last_login: new Date().toISOString()
       };
@@ -280,7 +287,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [sessionTimer]);
 
-  const updateUser = useCallback(async (updates: Partial<User>): Promise<AuthResponse> => {
+  // Fixed: Using the correct response type
+  const updateUser = useCallback(async (updates: Partial<Utilisateur>): Promise<ReponseAuthentification> => {
     try {
       if (!authState.user) {
         throw new Error('Utilisateur non connecté');
@@ -314,7 +322,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [authState.user]);
 
-  const hasRole = useCallback((role: User['role'] | User['role'][]): boolean => {
+  const hasRole = useCallback((role: Utilisateur['role'] | Utilisateur['role'][]): boolean => {
     if (!authState.user) return false;
     
     if (Array.isArray(role)) {
@@ -350,7 +358,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [authState.isAuthenticated, resetSession]);
 
-  const value: AuthContextType = {
+  // Fixed: Using the correct Context Value Type
+  const value: TypeContexteAuthentification = {
     ...authState,
     login,
     logout,
@@ -368,7 +377,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = (): TypeContexteAuthentification => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
@@ -377,7 +386,7 @@ export const useAuth = (): AuthContextType => {
 };
 
 // Hook personnalisé pour protéger les routes par rôle
-export const useRequireAuth = (requiredRole?: User['role'] | User['role'][]) => {
+export const useRequireAuth = (requiredRole?: Utilisateur['role'] | Utilisateur['role'][]) => {
   const { isAuthenticated, isLoading, user, hasRole } = useAuth();
 
   if (isLoading) {

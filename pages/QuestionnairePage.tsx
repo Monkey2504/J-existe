@@ -1,256 +1,174 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, Send, Sparkles, MapPin, AlertCircle, Camera, User, Trash2 } from 'lucide-react';
-import { synthesizeQuestionnaire } from '../services/geminiService.ts';
-import { saveProfile } from '../services/mockSupabase.ts';
-import CameraCapture from '../components/CameraCapture.tsx';
+import {
+  ArrowRight, ArrowLeft, Send, Sparkles, MapPin,
+  AlertCircle, Camera, User, Trash2
+} from 'lucide-react';
 
-const STEPS = [
-  { 
-    id: 'identity', 
-    title: "Comment t'appelles-tu ?", 
-    subtitle: "Juste un prénom ou un surnom, c'est suffisant.",
-    field: 'name',
-    placeholder: "Ton prénom...",
-    type: 'text'
-  },
-  {
-    id: 'photo',
-    title: "On prend un portrait ?",
-    subtitle: "C'est plus facile pour te reconnaître. Tu peux refuser si tu préfères.",
-    field: 'image_url',
-    type: 'photo'
-  },
-  { 
-    id: 'background', 
-    title: "Tu faisais quoi avant ?", 
-    subtitle: "Ton ancien métier, ta vie d'avant le bug.",
-    field: 'background',
-    placeholder: "Ex: J'étais ouvrier, j'avais une famille...",
-    type: 'text'
-  },
-  { 
-    id: 'trigger', 
-    title: "Qu'est-ce qui a tout cassé ?", 
-    subtitle: "C'était quoi le moment où ça a basculé ? Licenciement, rupture, expulsion ?",
-    field: 'trigger',
-    placeholder: "Raconte ce moment précis...",
-    type: 'text'
-  },
-  { 
-    id: 'daily', 
-    title: "C'est quoi le plus dur ici ?", 
-    subtitle: "Le froid, le bruit, l'attente, le regard des gens ?",
-    field: 'dailyHardship',
-    placeholder: "La réalité de tes journées...",
-    type: 'text'
-  },
-  { 
-    id: 'needs', 
-    title: "De quoi as-tu besoin là ?", 
-    subtitle: "Des trucs concrets pour aujourd'hui.",
-    field: 'needs',
-    placeholder: "Ex: Des chaussures, un duvet, un ticket de bus...",
-    type: 'text'
-  },
-  { 
-    id: 'location', 
-    title: "Où est-ce qu'on peut te trouver ?", 
-    subtitle: "Le quartier ou la place où tu te poses souvent.",
-    field: 'location',
-    placeholder: "Ex: Place Sainte-Catherine...",
-    type: 'text'
-  }
+import { synthetiserQuestionnaire } from '../services/geminiService';
+import { sauvegarderProfil } from '../services/mockSupabase';
+import CameraCapture from '../components/CameraCapture';
+
+// ------------------------------------------------------------
+// Types et données statiques
+// ------------------------------------------------------------
+type TypeEtape = 'text' | 'photo';
+
+interface Etape {
+  id: string;
+  title: string;
+  subtitle: string;
+  field: string;
+  placeholder?: string;
+  type: TypeEtape;
+}
+
+const ETAPES: Etape[] = [
+  { id: 'identity', title: "Comment t'appelles-tu ?", subtitle: "Juste un prénom ou un surnom, c'est suffisant.", field: 'name', placeholder: 'Ton prénom...', type: 'text' },
+  { id: 'photo', title: 'On prend un portrait ?', subtitle: "C'est plus facile pour te reconnaître. Tu peux refuser si tu préfères.", field: 'image_url', type: 'photo' },
+  { id: 'background', title: 'Tu faisais quoi avant ?', subtitle: "Ton ancien métier, ta vie d'avant le bug.", field: 'background', placeholder: "Ex: J'étais ouvrier, j'avais une famille...", type: 'text' },
+  { id: 'trigger', title: "Qu'est-ce qui a tout cassé ?", subtitle: 'C’était quoi le moment où ça a basculé ? Licenciement, rupture, expulsion ?', field: 'trigger', placeholder: 'Raconte ce moment précis...', type: 'text' },
+  { id: 'daily', title: "C'est quoi le plus dur ici ?", subtitle: "Le froid, le bruit, l'attente, le regard des gens ?", field: 'dailyHardship', placeholder: "La réalité de tes journées...", type: 'text' },
+  { id: 'needs', title: 'De quoi as-tu besoin là ?', subtitle: "Des trucs concrets pour aujourd'hui.", field: 'needs', placeholder: 'Ex: Des chaussures, un duvet, un ticket de bus...', type: 'text' },
+  { id: 'location', title: "Où est-ce qu'on peut te trouver ?", subtitle: 'Le quartier ou la place où tu te poses souvent.', field: 'location', placeholder: 'Ex: Place Sainte-Catherine...', type: 'text' }
 ];
 
-const QuestionnairePage: React.FC = () => {
+const useQuestionnaire = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
+  const [etapeCourante, setEtapeCourante] = useState(0);
+  const [reponses, setReponses] = useState<Record<string, string>>({});
+  const [soumissionEnCours, setSoumissionEnCours] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
 
-  const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
-      setCurrentStep(prev => prev + 1);
-    } else {
-      handleSubmit();
+  const totalEtapes = ETAPES.length;
+  const etape = ETAPES[etapeCourante];
+
+  const mettreAJourReponse = useCallback((champ: string, valeur: string) => {
+    setReponses(prev => ({ ...prev, [champ]: valeur }));
+  }, []);
+
+  const estEtapeValide = useMemo(() => {
+    if (etape.type === 'photo') return true; 
+    const valeur = reponses[etape.field];
+    return !!(valeur && valeur.trim().length > 0);
+  }, [etape, reponses]);
+
+  const allerEtapeSuivante = useCallback(() => {
+    if (etapeCourante < totalEtapes - 1) {
+      setEtapeCourante(prev => prev + 1);
+      setErreur(null);
     }
-  };
+  }, [etapeCourante, totalEtapes]);
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setError(null);
+  const allerEtapePrecedente = useCallback(() => {
+    if (etapeCourante > 0) {
+      setEtapeCourante(prev => prev - 1);
+      setErreur(null);
+    }
+  }, [etapeCourante]);
+
+  const allerAEtape = useCallback((index: number) => {
+    if (index < etapeCourante) {
+      setEtapeCourante(index);
+      setErreur(null);
+    }
+  }, [etapeCourante]);
+
+  const soumettre = useCallback(async () => {
+    setSoumissionEnCours(true);
+    setErreur(null);
     try {
-      const reformulated = await synthesizeQuestionnaire({
-        background: answers.background || "",
-        trigger: answers.trigger || "",
-        dailyHardship: answers.dailyHardship || "",
-        location: answers.location || ""
+      const recitReformule = await synthetiserQuestionnaire({
+        parcours: reponses.background || '',
+        declencheur: reponses.trigger || '',
+        difficultes: reponses.dailyHardship || '',
+        localisation: reponses.location || ''
       });
 
-      const publicId = `${answers.name?.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
-      
-      await saveProfile({
+      const base = reponses.name?.toLowerCase().replace(/\s+/g, '-') || 'inconnu';
+      const publicId = `${base}-${Math.random().toString(36).substring(2, 7)}`;
+
+      await sauvegarderProfil({
         id: crypto.randomUUID(),
         publicId,
-        name: answers.name || "Inconnu",
-        image_url: answers.image_url || "",
-        raw_story: `Avant: ${answers.background}. Basculement: ${answers.trigger}. Quotidien: ${answers.dailyHardship}`,
-        reformulated_story: reformulated,
-        needs: answers.needs || "",
-        usual_place: answers.location || "Bruxelles",
+        name: reponses.name?.trim() || 'Inconnu',
+        image_url: reponses.image_url || '',
+        raw_story: `Récit de ${reponses.name}. Parcours : ${reponses.background}. Basculement : ${reponses.trigger}. Quotidien : ${reponses.dailyHardship}`,
+        reformulated_story: recitReformule,
+        needs: reponses.needs || '',
+        usual_place: reponses.location?.trim() || 'Bruxelles',
         is_public: true,
         is_archived: false,
-        is_verified: true, // Créé via questionnaire pro = vérifié par défaut
+        is_verified: true,
         created_at: new Date().toISOString()
       });
-
       navigate(`/p/${publicId}`);
     } catch (err) {
-      setError("Désolé, la machine a buggé. Réessaie.");
-      setIsSubmitting(false);
+      setErreur('Impossible de finaliser le dossier pour le moment.');
+      setSoumissionEnCours(false);
     }
-  };
+  }, [reponses, navigate]);
 
-  const step = STEPS[currentStep];
+  return { etapeCourante, etape, totalEtapes, reponses, soumissionEnCours, erreur, setErreur, mettreAJourReponse, estEtapeValide, allerEtapeSuivante, allerEtapePrecedente, allerAEtape, soumettre };
+};
+
+const QuestionnairePage: React.FC = () => {
+  const { etapeCourante, etape, totalEtapes, reponses, soumissionEnCours, erreur, setErreur, mettreAJourReponse, estEtapeValide, allerEtapeSuivante, allerEtapePrecedente, allerAEtape, soumettre } = useQuestionnaire();
+  const [cameraOuverte, setCameraOuverte] = useState(false);
+
+  const handleSuivant = useCallback(() => {
+    if (etapeCourante === totalEtapes - 1) soumettre();
+    else allerEtapeSuivante();
+  }, [etapeCourante, totalEtapes, soumettre, allerEtapeSuivante]);
 
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-6 sm:p-12">
-      <div className="w-full max-w-2xl">
-        
-        {/* Progress bar interactive */}
+      <main className="w-full max-w-2xl outline-none" aria-live="polite">
         <div className="flex gap-2 mb-20">
-          {STEPS.map((_, i) => {
-            const isPast = i < currentStep;
-            const isCurrent = i === currentStep;
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => isPast && setCurrentStep(i)}
-                disabled={!isPast}
-                className={`h-1 flex-1 rounded-full transition-all duration-500 relative group ${
-                  isPast || isCurrent ? 'bg-blue-600' : 'bg-stone-800'
-                } ${isPast ? 'cursor-pointer hover:h-2' : 'cursor-default'}`}
-                title={isPast ? `Revenir à : ${STEPS[i].title}` : undefined}
-              >
-                {isPast && (
-                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-black text-blue-600 uppercase tracking-widest whitespace-nowrap">
-                    Étape {i + 1}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {Array.from({ length: totalEtapes }).map((_, i) => (
+            <button key={i} onClick={() => i < etapeCourante && allerAEtape(i)} disabled={i >= etapeCourante} className={`h-1 flex-1 rounded-full transition-all ${i <= etapeCourante ? 'bg-blue-600' : 'bg-stone-800'}`} />
+          ))}
         </div>
 
         <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-12"
-          >
+          <motion.div key={etapeCourante} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-12">
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.6em] text-blue-600">Question {currentStep + 1} sur {STEPS.length}</h2>
-              </div>
-              <h1 className="text-5xl sm:text-7xl font-impact text-white leading-none tracking-tighter">{step.title.toUpperCase()}</h1>
-              <p className="text-stone-500 font-serif italic text-xl">{step.subtitle}</p>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.6em] text-blue-600">Question {etapeCourante + 1} / {totalEtapes}</h2>
+              <h1 className="text-5xl sm:text-7xl font-impact text-white leading-none tracking-tighter uppercase">{etape.title}</h1>
+              <p className="text-stone-500 font-serif italic text-xl">{etape.subtitle}</p>
             </div>
 
             <div className="relative">
-              {step.type === 'text' ? (
-                <textarea
-                  autoFocus
-                  value={answers[step.field] || ''}
-                  onChange={e => setAnswers({ ...answers, [step.field]: e.target.value })}
-                  className="w-full bg-transparent border-b-2 border-stone-800 focus:border-blue-600 outline-none text-2xl sm:text-3xl text-white py-4 resize-none min-h-[100px] transition-colors"
-                  placeholder={step.placeholder}
-                />
+              {etape.type === 'text' ? (
+                <textarea autoFocus value={reponses[etape.field] || ''} onChange={e => mettreAJourReponse(etape.field, e.target.value)} className="w-full bg-transparent border-b-2 border-stone-800 focus:border-blue-600 outline-none text-2xl sm:text-3xl text-white py-4 resize-none min-h-[120px]" placeholder={etape.placeholder} />
               ) : (
                 <div className="flex flex-col items-center gap-8 py-10">
-                   <div className="w-64 h-64 rounded-[4rem] bg-stone-800 border-2 border-stone-700 overflow-hidden relative flex items-center justify-center">
-                      {answers.image_url ? (
-                        <img src={answers.image_url} alt="Portrait" className="w-full h-full object-cover grayscale" />
-                      ) : (
-                        <User className="w-20 h-20 text-stone-700" />
-                      )}
-                      <button 
-                        onClick={() => setShowCamera(true)}
-                        className="absolute inset-0 bg-stone-900/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                      >
-                        <Camera className="w-12 h-12 text-white" />
-                      </button>
-                   </div>
-                   
-                   {answers.image_url ? (
-                     <button 
-                        onClick={() => setAnswers({...answers, image_url: ''})}
-                        className="flex items-center gap-2 text-red-500 font-bold text-[10px] uppercase tracking-widest"
-                     >
-                       <Trash2 className="w-4 h-4" /> Supprimer la photo
-                     </button>
-                   ) : (
-                     <button 
-                        onClick={() => setShowCamera(true)}
-                        className="px-10 py-5 border-2 border-white text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-white hover:text-stone-900 transition-all"
-                     >
-                       Capturer le portrait
-                     </button>
-                   )}
+                  <div className="w-64 h-64 rounded-[4rem] bg-stone-800 border-2 border-stone-700 overflow-hidden flex items-center justify-center group relative cursor-pointer" onClick={() => setCameraOuverte(true)}>
+                    {reponses.image_url ? <img src={reponses.image_url} className="w-full h-full object-cover grayscale" /> : <User className="w-20 h-20 text-stone-700" />}
+                    <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="w-10 h-10 text-white" /></div>
+                  </div>
+                  {reponses.image_url && <button onClick={() => mettreAJourReponse('image_url', '')} className="text-red-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2"><Trash2 className="w-3 h-3" /> Supprimer</button>}
                 </div>
               )}
             </div>
 
-            {error && (
-              <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-widest">
-                <AlertCircle className="w-4 h-4" /> {error}
-              </div>
-            )}
+            {erreur && <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-widest" role="alert"><AlertCircle className="w-4 h-4" /> {erreur}</div>}
 
             <div className="flex justify-between items-center pt-10">
-              <button 
-                onClick={() => currentStep > 0 && setCurrentStep(prev => prev - 1)}
-                className={`flex items-center gap-2 text-stone-500 font-black text-[10px] uppercase tracking-widest hover:text-white transition-colors ${currentStep === 0 ? 'opacity-0 pointer-events-none' : ''}`}
-              >
-                <ArrowLeft className="w-4 h-4" /> Retour
-              </button>
-
-              <button 
-                onClick={handleNext}
-                disabled={isSubmitting || (step.type === 'text' && !answers[step.field])}
-                className="group flex items-center gap-4 bg-white px-10 py-5 rounded-full text-stone-900 font-black text-xs uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
-              >
-                {isSubmitting ? 'EXISTENCE EN CRÉATION...' : (currentStep === STEPS.length - 1 ? 'PUBLIER MA FICHE' : (step.type === 'photo' && !answers.image_url ? 'PASSER CETTE ÉTAPE' : 'CONTINUER'))}
-                {isSubmitting ? <Sparkles className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+              <button onClick={allerEtapePrecedente} disabled={etapeCourante === 0} className={`flex items-center gap-2 text-stone-500 font-black text-[10px] uppercase tracking-widest ${etapeCourante === 0 ? 'opacity-0' : 'hover:text-white'}`}><ArrowLeft className="w-4 h-4" /> Retour</button>
+              <button onClick={handleSuivant} disabled={soumissionEnCours || (!estEtapeValide && etape.type !== 'photo')} className="bg-white px-10 py-5 rounded-full text-stone-900 font-black text-xs uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all disabled:opacity-30">
+                {soumissionEnCours ? 'INDEXATION...' : (etapeCourante === totalEtapes - 1 ? 'PUBLIER' : 'CONTINUER')}
               </button>
             </div>
           </motion.div>
         </AnimatePresence>
-      </div>
+      </main>
 
-      <div className="fixed bottom-12 left-12">
-        <div className="flex items-center gap-3 text-stone-700">
-          <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-widest">Bruxelles Direct Access</span>
-        </div>
-      </div>
-
-      {showCamera && (
-        <CameraCapture 
-          onCapture={(img) => setAnswers({...answers, image_url: img})} 
-          onClose={() => setShowCamera(false)} 
-        />
-      )}
+      {cameraOuverte && <CameraCapture onCapture={img => mettreAJourReponse('image_url', img)} onClose={() => setCameraOuverte(false)} />}
     </div>
   );
 };
 
-export default QuestionnairePage;
+export default React.memo(QuestionnairePage);
