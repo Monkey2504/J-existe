@@ -8,11 +8,17 @@ interface State {
   hasError: boolean;
 }
 
-// Fix: Inheriting from React.Component<Props, State> explicitly ensures that 'props' is correctly typed and recognized by the TypeScript compiler as part of the base class.
+/**
+ * Composant de secours pour capturer les erreurs inattendues dans l'arborescence des composants.
+ * Fixed: Explicitly extending React.Component and using a constructor to ensure 'this.props' is correctly typed.
+ */
 class ErrorBoundary extends React.Component<Props, State> {
-  public state: State = {
-    hasError: false
-  };
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false
+    };
+  }
 
   public static getDerivedStateFromError(_: Error): State {
     return { hasError: true };
@@ -42,7 +48,7 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Accessing children through this.props, which is now correctly inherited from the React.Component base class.
+    // Correctement accès aux props via la classe parente React.Component
     return this.props.children;
   }
 }

@@ -1,52 +1,69 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
-const INSTRUCTION_GREFFIER = `Tu es un GREFFIER SOCIAL FACTUEL. Ton but est de créer une synthèse administrative d'un récit de vie.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-INTERDICTIONS ABSOLUES :
-1. NE JAMAIS utiliser d'adjectifs psychologiques (ex: "déprimé", "instable", "triste").
-2. NE JAMAIS interpréter des signes physiques comme des addictions (ex: "yeux rouges" ne devient PAS "alcoolique").
-3. NE JAMAIS inventer de passé professionnel. Si non mentionné, écris "Parcours antérieur non documenté".
-4. NE JAMAIS porter de jugement de valeur.
+/**
+ * Analyse multimodale : Texte + Image
+ */
+export const analyserProfilComplet = async (recitBrut: string, base64Image?: string) => {
+  const model = 'gemini-3-flash-preview';
+  
+  const parts: any[] = [
+    { text: `CONTEXTE DE RUE : ${recitBrut}. 
+    TÂCHE : 
+    1. Reformule ce récit de façon factuelle, digne et clinique.
+    2. Identifie les besoins matériels EXPLICITES.
+    3. Si image, identifie besoins IMPLICITES.
+    Structure : PARCOURS / RUPTURE / BESOINS.` }
+  ];
 
-STRUCTURE OBLIGATOIRE :
-- ÉLÉMENTS DE PARCOURS : (Faits datés ou métiers occupés)
-- POINT DE RUPTURE : (L'événement déclencheur matériel de la rue)
-- SITUATION MATÉRIELLE ACTUELLE : (Zone d'occupation et besoins identifiés)
+  if (base64Image) {
+    parts.push({
+      inlineData: {
+        mimeType: "image/jpeg",
+        data: base64Image.includes(',') ? base64Image.split(',')[1] : base64Image
+      }
+    });
+  }
 
-Style : Clinique, neutre, sans aucune empathie feinte ou misérabilisme.`;
-
-const executerRequeteGemini = async (prompt: string, instructionSysteme: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
+    model: model,
+    contents: { parts },
     config: {
-      systemInstruction: instructionSysteme,
-      temperature: 0, // Désactivation totale de la créativité pour rester sur les faits
-      maxOutputTokens: 600,
-      topP: 0.1
+      systemInstruction: "Tu es un assistant social expert. Ta mission est de transformer des notes de terrain en dossier d'existence factuel.",
+      temperature: 0.1
     }
   });
-  return response.text?.trim() || "";
+
+  return response.text || "";
 };
 
-export const reformulerRecit = async (recitBrut: string): Promise<string> => {
-  if (!recitBrut || recitBrut.trim().length < 20) throw new Error("Contenu insuffisant.");
-  return await executerRequeteGemini(`Reformule ces notes de terrain : ${recitBrut}`, INSTRUCTION_GREFFIER);
+/**
+ * Recherche de solutions d'aide avec Grounding Google Search.
+ * Retourne la réponse complète pour permettre l'extraction des URLs.
+ */
+export const trouverSolutionsAide = async (besoin: string, localisation: string) => {
+  const model = 'gemini-3-flash-preview';
+  const response = await ai.models.generateContent({
+    model: model,
+    contents: `Donne 3 lieux précis (associations ou commerces) où trouver ${besoin} à proximité de ${localisation} à Bruxelles. Donne l'adresse et le nom de l'endroit.`,
+    config: {
+      tools: [{ googleSearch: {} }]
+    }
+  });
+
+  return response;
 };
 
-export const synthetiserQuestionnaire = async (reponses: {
-  declencheur: string;
-  difficultes: string;
-  parcours: string;
-  localisation: string;
-}): Promise<string> => {
-  const prompt = `Synthétise ces faits bruts : 
-  - Passé : ${reponses.parcours}
-  - Rupture : ${reponses.declencheur}
-  - Actuel : ${reponses.difficultes}
-  - Zone : ${reponses.localisation}`;
-  
-  return await executerRequeteGemini(prompt, INSTRUCTION_GREFFIER);
+export const reformulerRecit = async (recitBrut: string) => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Reformule ce récit social de façon factuelle : ${recitBrut}`,
+    config: {
+      systemInstruction: "Tu es un expert en travail social. Neutralité et dignité sont tes priorités.",
+      temperature: 0.1
+    }
+  });
+  return response.text || "";
 };

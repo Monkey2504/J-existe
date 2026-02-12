@@ -1,174 +1,128 @@
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowRight, ArrowLeft, Send, Sparkles, MapPin,
-  AlertCircle, Camera, User, Trash2
+  ArrowRight, ArrowLeft, Mic, MicOff, MapPin,
+  AlertCircle, Camera, User, Sparkles, Loader2
 } from 'lucide-react';
 
-import { synthetiserQuestionnaire } from '../services/geminiService';
+import { analyserProfilComplet } from '../services/geminiService';
 import { sauvegarderProfil } from '../services/mockSupabase';
 import CameraCapture from '../components/CameraCapture';
 
-// ------------------------------------------------------------
-// Types et données statiques
-// ------------------------------------------------------------
-type TypeEtape = 'text' | 'photo';
-
-interface Etape {
-  id: string;
-  title: string;
-  subtitle: string;
-  field: string;
-  placeholder?: string;
-  type: TypeEtape;
-}
-
-const ETAPES: Etape[] = [
-  { id: 'identity', title: "Comment t'appelles-tu ?", subtitle: "Juste un prénom ou un surnom, c'est suffisant.", field: 'name', placeholder: 'Ton prénom...', type: 'text' },
-  { id: 'photo', title: 'On prend un portrait ?', subtitle: "C'est plus facile pour te reconnaître. Tu peux refuser si tu préfères.", field: 'image_url', type: 'photo' },
-  { id: 'background', title: 'Tu faisais quoi avant ?', subtitle: "Ton ancien métier, ta vie d'avant le bug.", field: 'background', placeholder: "Ex: J'étais ouvrier, j'avais une famille...", type: 'text' },
-  { id: 'trigger', title: "Qu'est-ce qui a tout cassé ?", subtitle: 'C’était quoi le moment où ça a basculé ? Licenciement, rupture, expulsion ?', field: 'trigger', placeholder: 'Raconte ce moment précis...', type: 'text' },
-  { id: 'daily', title: "C'est quoi le plus dur ici ?", subtitle: "Le froid, le bruit, l'attente, le regard des gens ?", field: 'dailyHardship', placeholder: "La réalité de tes journées...", type: 'text' },
-  { id: 'needs', title: 'De quoi as-tu besoin là ?', subtitle: "Des trucs concrets pour aujourd'hui.", field: 'needs', placeholder: 'Ex: Des chaussures, un duvet, un ticket de bus...', type: 'text' },
-  { id: 'location', title: "Où est-ce qu'on peut te trouver ?", subtitle: 'Le quartier ou la place où tu te poses souvent.', field: 'location', placeholder: 'Ex: Place Sainte-Catherine...', type: 'text' }
+const ETAPES = [
+  { id: 'identity', title: "Son Prénom", subtitle: "Comment s'appelle cette personne ?", field: 'name', type: 'text' },
+  { id: 'photo', title: 'Le Regard', subtitle: "Prenez une photo (avec son accord) pour l'index.", field: 'image_url', type: 'photo' },
+  { id: 'story', title: 'Son Récit', subtitle: "Utilisez le micro. Racontez son histoire et ce qu'il lui manque.", field: 'raw_story', type: 'text' }
 ];
 
-const useQuestionnaire = () => {
+const QuestionnairePage: React.FC = () => {
   const navigate = useNavigate();
   const [etapeCourante, setEtapeCourante] = useState(0);
   const [reponses, setReponses] = useState<Record<string, string>>({});
-  const [soumissionEnCours, setSoumissionEnCours] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
+  const [isAnalysing, setIsAnalysing] = useState(false);
+  const [cameraOuverte, setCameraOuverte] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
-  const totalEtapes = ETAPES.length;
   const etape = ETAPES[etapeCourante];
 
-  const mettreAJourReponse = useCallback((champ: string, valeur: string) => {
-    setReponses(prev => ({ ...prev, [champ]: valeur }));
-  }, []);
+  const toggleSpeech = () => {
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      const text = event.results[0][0].transcript;
+      setReponses(prev => ({ ...prev, [etape.field]: (prev[etape.field] || '') + ' ' + text }));
+      setIsListening(false);
+    };
+    recognition.start();
+  };
 
-  const estEtapeValide = useMemo(() => {
-    if (etape.type === 'photo') return true; 
-    const valeur = reponses[etape.field];
-    return !!(valeur && valeur.trim().length > 0);
-  }, [etape, reponses]);
-
-  const allerEtapeSuivante = useCallback(() => {
-    if (etapeCourante < totalEtapes - 1) {
-      setEtapeCourante(prev => prev + 1);
-      setErreur(null);
-    }
-  }, [etapeCourante, totalEtapes]);
-
-  const allerEtapePrecedente = useCallback(() => {
-    if (etapeCourante > 0) {
-      setEtapeCourante(prev => prev - 1);
-      setErreur(null);
-    }
-  }, [etapeCourante]);
-
-  const allerAEtape = useCallback((index: number) => {
-    if (index < etapeCourante) {
-      setEtapeCourante(index);
-      setErreur(null);
-    }
-  }, [etapeCourante]);
-
-  const soumettre = useCallback(async () => {
-    setSoumissionEnCours(true);
-    setErreur(null);
+  const finaliserDossier = async () => {
+    setIsAnalysing(true);
     try {
-      const recitReformule = await synthetiserQuestionnaire({
-        parcours: reponses.background || '',
-        declencheur: reponses.trigger || '',
-        difficultes: reponses.dailyHardship || '',
-        localisation: reponses.location || ''
-      });
-
-      const base = reponses.name?.toLowerCase().replace(/\s+/g, '-') || 'inconnu';
-      const publicId = `${base}-${Math.random().toString(36).substring(2, 7)}`;
-
+      const syntheseIA = await analyserProfilComplet(reponses.raw_story, reponses.image_url);
+      
+      const publicId = `${reponses.name.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
+      
       await sauvegarderProfil({
         id: crypto.randomUUID(),
         publicId,
-        name: reponses.name?.trim() || 'Inconnu',
-        image_url: reponses.image_url || '',
-        raw_story: `Récit de ${reponses.name}. Parcours : ${reponses.background}. Basculement : ${reponses.trigger}. Quotidien : ${reponses.dailyHardship}`,
-        reformulated_story: recitReformule,
-        needs: reponses.needs || '',
-        usual_place: reponses.location?.trim() || 'Bruxelles',
+        name: reponses.name,
+        image_url: reponses.image_url,
+        raw_story: reponses.raw_story,
+        reformulated_story: syntheseIA,
+        needs: "Chargement des solutions locales...",
+        usual_place: "Localisation GPS partagée",
         is_public: true,
         is_archived: false,
         is_verified: true,
         created_at: new Date().toISOString()
       });
+      
       navigate(`/p/${publicId}`);
     } catch (err) {
-      setErreur('Impossible de finaliser le dossier pour le moment.');
-      setSoumissionEnCours(false);
+      console.error(err);
+    } finally {
+      setIsAnalysing(false);
     }
-  }, [reponses, navigate]);
+  };
 
-  return { etapeCourante, etape, totalEtapes, reponses, soumissionEnCours, erreur, setErreur, mettreAJourReponse, estEtapeValide, allerEtapeSuivante, allerEtapePrecedente, allerAEtape, soumettre };
-};
-
-const QuestionnairePage: React.FC = () => {
-  const { etapeCourante, etape, totalEtapes, reponses, soumissionEnCours, erreur, setErreur, mettreAJourReponse, estEtapeValide, allerEtapeSuivante, allerEtapePrecedente, allerAEtape, soumettre } = useQuestionnaire();
-  const [cameraOuverte, setCameraOuverte] = useState(false);
-
-  const handleSuivant = useCallback(() => {
-    if (etapeCourante === totalEtapes - 1) soumettre();
-    else allerEtapeSuivante();
-  }, [etapeCourante, totalEtapes, soumettre, allerEtapeSuivante]);
+  if (isAnalysing) return (
+    <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center space-y-8 text-center px-10">
+      <div className="relative">
+        <Loader2 className="w-20 h-20 text-blue-600 animate-spin" />
+        <Sparkles className="absolute top-0 right-0 w-8 h-8 text-white animate-pulse" />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-3xl font-impact text-white uppercase tracking-widest">L'IA témoigne...</h2>
+        <p className="font-serif italic text-stone-500">Analyse de la photo et du récit pour ne rien oublier.</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-6 sm:p-12">
-      <main className="w-full max-w-2xl outline-none" aria-live="polite">
-        <div className="flex gap-2 mb-20">
-          {Array.from({ length: totalEtapes }).map((_, i) => (
-            <button key={i} onClick={() => i < etapeCourante && allerAEtape(i)} disabled={i >= etapeCourante} className={`h-1 flex-1 rounded-full transition-all ${i <= etapeCourante ? 'bg-blue-600' : 'bg-stone-800'}`} />
-          ))}
-        </div>
+    <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-xl space-y-12">
+        <header className="space-y-4">
+           <h1 className="text-4xl font-impact text-white uppercase tracking-tighter">{etape.title}</h1>
+           <p className="text-stone-500 font-serif italic">{etape.subtitle}</p>
+        </header>
 
-        <AnimatePresence mode="wait">
-          <motion.div key={etapeCourante} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-12">
-            <div className="space-y-4">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.6em] text-blue-600">Question {etapeCourante + 1} / {totalEtapes}</h2>
-              <h1 className="text-5xl sm:text-7xl font-impact text-white leading-none tracking-tighter uppercase">{etape.title}</h1>
-              <p className="text-stone-500 font-serif italic text-xl">{etape.subtitle}</p>
-            </div>
-
-            <div className="relative">
-              {etape.type === 'text' ? (
-                <textarea autoFocus value={reponses[etape.field] || ''} onChange={e => mettreAJourReponse(etape.field, e.target.value)} className="w-full bg-transparent border-b-2 border-stone-800 focus:border-blue-600 outline-none text-2xl sm:text-3xl text-white py-4 resize-none min-h-[120px]" placeholder={etape.placeholder} />
-              ) : (
-                <div className="flex flex-col items-center gap-8 py-10">
-                  <div className="w-64 h-64 rounded-[4rem] bg-stone-800 border-2 border-stone-700 overflow-hidden flex items-center justify-center group relative cursor-pointer" onClick={() => setCameraOuverte(true)}>
-                    {reponses.image_url ? <img src={reponses.image_url} className="w-full h-full object-cover grayscale" /> : <User className="w-20 h-20 text-stone-700" />}
-                    <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="w-10 h-10 text-white" /></div>
-                  </div>
-                  {reponses.image_url && <button onClick={() => mettreAJourReponse('image_url', '')} className="text-red-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2"><Trash2 className="w-3 h-3" /> Supprimer</button>}
-                </div>
-              )}
-            </div>
-
-            {erreur && <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-widest" role="alert"><AlertCircle className="w-4 h-4" /> {erreur}</div>}
-
-            <div className="flex justify-between items-center pt-10">
-              <button onClick={allerEtapePrecedente} disabled={etapeCourante === 0} className={`flex items-center gap-2 text-stone-500 font-black text-[10px] uppercase tracking-widest ${etapeCourante === 0 ? 'opacity-0' : 'hover:text-white'}`}><ArrowLeft className="w-4 h-4" /> Retour</button>
-              <button onClick={handleSuivant} disabled={soumissionEnCours || (!estEtapeValide && etape.type !== 'photo')} className="bg-white px-10 py-5 rounded-full text-stone-900 font-black text-xs uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all disabled:opacity-30">
-                {soumissionEnCours ? 'INDEXATION...' : (etapeCourante === totalEtapes - 1 ? 'PUBLIER' : 'CONTINUER')}
+        <main className="min-h-[300px] flex items-center justify-center">
+          {etape.type === 'text' ? (
+            <div className="w-full relative">
+              <textarea 
+                value={reponses[etape.field] || ''}
+                onChange={e => setReponses({...reponses, [etape.field]: e.target.value})}
+                className="w-full bg-transparent border-b-2 border-stone-800 text-white text-3xl font-serif py-4 focus:border-blue-600 outline-none"
+                placeholder="..."
+              />
+              <button onClick={toggleSpeech} className={`absolute right-0 bottom-4 p-4 rounded-full ${isListening ? 'bg-red-600 animate-pulse' : 'bg-stone-800'}`}>
+                {isListening ? <MicOff className="text-white" /> : <Mic className="text-white" />}
               </button>
             </div>
-          </motion.div>
-        </AnimatePresence>
-      </main>
+          ) : (
+            <div onClick={() => setCameraOuverte(true)} className="w-64 h-64 bg-stone-900 rounded-[3rem] border-2 border-dashed border-stone-700 flex items-center justify-center cursor-pointer overflow-hidden">
+              {reponses.image_url ? <img src={reponses.image_url} className="w-full h-full object-cover grayscale" /> : <Camera className="w-12 h-12 text-stone-700" />}
+            </div>
+          )}
+        </main>
 
-      {cameraOuverte && <CameraCapture onCapture={img => mettreAJourReponse('image_url', img)} onClose={() => setCameraOuverte(false)} />}
+        <footer className="flex justify-between">
+          <button onClick={() => setEtapeCourante(e => e - 1)} disabled={etapeCourante === 0} className="text-stone-500 uppercase font-black text-[10px] tracking-widest">Retour</button>
+          <button 
+            onClick={() => etapeCourante === ETAPES.length - 1 ? finaliserDossier() : setEtapeCourante(e => e + 1)} 
+            className="bg-white px-10 py-4 rounded-full text-stone-950 font-black text-[10px] uppercase tracking-widest"
+          >
+            {etapeCourante === ETAPES.length - 1 ? 'PUBLIER L\'EXISTENCE' : 'SUIVANT'}
+          </button>
+        </footer>
+      </div>
+      {cameraOuverte && <CameraCapture onCapture={img => setReponses({...reponses, image_url: img})} onClose={() => setCameraOuverte(false)} />}
     </div>
   );
 };
 
-export default React.memo(QuestionnairePage);
+export default QuestionnairePage;

@@ -1,7 +1,9 @@
 {
   "name": "J'EXISTE",
-  "description": "Une plateforme sobre et poétique permettant de donner une existence numérique et humaine aux personnes sans-abri à travers des récits reformulés par l'IA et des QR codes de contact.",
+  "description": "Une plateforme de visibilité humaine transformant les rencontres de rue en actions de solidarité immédiates via l'IA.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone",
+    "geolocation"
   ]
 }
