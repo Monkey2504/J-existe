@@ -1,7 +1,6 @@
 
 import React from 'react';
-// Fixed: Corrected type name according to types.ts
-import { Profil } from '../types';
+import { Profil } from '../types.ts';
 import { MapPin, ExternalLink } from 'lucide-react';
 
 const StoryPreview: React.FC<{ profile: Profil }> = ({ profile }) => {

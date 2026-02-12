@@ -5,11 +5,11 @@ import { motion } from 'framer-motion';
 import { 
   ArrowLeft, MapPin, Share2, Heart, ExternalLink, 
   ShoppingBag, Navigation, Zap, Info, Sparkles, Link as LinkIcon,
-  Camera, Loader2, CreditCard, ShieldCheck
+  Camera, Loader2, CreditCard, ShieldCheck, CheckCircle
 } from 'lucide-react';
 
 import { obtenirProfilParIdPublic, incrementerStatistique, sauvegarderProfil } from '../services/mockSupabase.ts';
-import { trouverSolutionsAide, genererImageProfil } from '../services/geminiService';
+import { trouverSolutionsAide, genererImageProfil } from '../services/geminiService.ts';
 import { Profil } from '../types.ts';
 
 const ProfileDetailPage: React.FC = () => {
@@ -28,7 +28,6 @@ const ProfileDetailPage: React.FC = () => {
           setProfil(data);
           incrementerStatistique(publicId, 'views');
           
-          // Auto-génération d'image si manquante
           if (!data.image_url) {
             handleAutoGenerateImage(data);
           }
@@ -84,8 +83,8 @@ const ProfileDetailPage: React.FC = () => {
     }
   };
 
-  if (chargement) return <div className="min-h-screen bg-stone-950 flex items-center justify-center font-impact text-white text-5xl animate-pulse uppercase">Dossier en cours d'extraction...</div>;
-  if (!profil) return <div className="min-h-screen flex items-center justify-center font-impact text-3xl uppercase">Profil introuvable</div>;
+  if (chargement) return <div className="min-h-screen bg-stone-950 flex items-center justify-center font-impact text-white text-5xl animate-pulse uppercase">Ouverture du registre...</div>;
+  if (!profil) return <div className="min-h-screen flex items-center justify-center font-impact text-3xl uppercase">Dossier introuvable</div>;
 
   return (
     <div className="min-h-screen bg-[#fdfcfb] dark:bg-stone-950 pb-24 grainy admin-grid transition-colors duration-500">
@@ -93,7 +92,7 @@ const ProfileDetailPage: React.FC = () => {
         <button onClick={() => navigate('/profiles')} className="p-3 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-full transition-colors dark:text-white"><ArrowLeft /></button>
         <div className="dymo-label bg-blue-600">ID PUBLIC: {profil.publicId.split('-').pop()}</div>
         <button onClick={handleShare} className="bg-stone-900 dark:bg-white dark:text-stone-900 text-white px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl active:scale-95 transition-all">
-          <Share2 className="w-4 h-4" /> Diffuser
+          <Share2 className="w-4 h-4" /> Partager l'existence
         </button>
       </nav>
 
@@ -104,7 +103,7 @@ const ProfileDetailPage: React.FC = () => {
                {generatingImage ? (
                  <div className="w-full h-full bg-stone-100 dark:bg-stone-900 flex flex-col items-center justify-center gap-4 text-stone-400">
                     <Loader2 className="w-8 h-8 animate-spin" />
-                    <span className="font-mono text-[8px] uppercase tracking-widest">Génération IA...</span>
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-center px-4">L'IA reconstitue un visage digne...</span>
                  </div>
                ) : profil.image_url ? (
                  <img src={profil.image_url} className="w-full h-full object-cover grayscale contrast-125" alt={profil.name} />
@@ -124,34 +123,37 @@ const ProfileDetailPage: React.FC = () => {
           </div>
         </header>
 
-        {/* Action Majeure : Soutien Financier */}
+        {/* Action Majeure : Soutien Financier Stripe */}
         {profil.donation_url && (
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-stone-900 dark:bg-stone-100 p-1 rounded-[3.5rem] shadow-2xl overflow-hidden"
+            className="bg-blue-600 p-1 rounded-[3.5rem] shadow-2xl overflow-hidden relative"
           >
+            <div className="absolute top-0 right-10 bg-white text-blue-600 px-6 py-2 rounded-b-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
+              <CheckCircle className="w-3 h-3" /> Vérifié par J'existe
+            </div>
             <button 
               onClick={handleDonationClick}
-              className="w-full flex flex-col md:flex-row items-center justify-between gap-6 p-8 md:p-12 hover:bg-stone-800 dark:hover:bg-white transition-colors group text-center md:text-left"
+              className="w-full flex flex-col md:flex-row items-center justify-between gap-8 p-10 md:p-14 bg-stone-900 hover:bg-stone-800 transition-colors group rounded-[3.4rem]"
             >
-              <div className="space-y-3">
+              <div className="text-center md:text-left space-y-4">
                 <div className="flex items-center justify-center md:justify-start gap-3">
-                  <CreditCard className="w-6 h-6 text-blue-500" />
-                  <span className="font-mono text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 dark:text-stone-500">Soutien Financier Direct</span>
+                  <CreditCard className="w-6 h-6 text-blue-400" />
+                  <span className="font-mono text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Canal de Soutien Direct</span>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-impact text-white dark:text-stone-900 uppercase leading-none tracking-tight">Financer ses besoins réels</h2>
-                <p className="text-stone-500 font-serif italic text-lg max-w-lg">
-                  Votre don est directement utilisé par l'association référente pour acheter les fournitures listées ci‑dessous.
+                <h2 className="text-4xl md:text-6xl font-impact text-white uppercase leading-none tracking-tight">Financer son <br className="hidden md:block"/> nouveau départ</h2>
+                <p className="text-stone-400 font-serif italic text-xl max-w-lg leading-snug">
+                  Votre contribution via Stripe est sécurisée et directement affectée aux besoins de {profil.name}.
                 </p>
               </div>
-              <div className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl group-hover:scale-105 transition-transform flex items-center gap-3">
-                Agir via Stripe <ArrowLeft className="w-5 h-5 rotate-180" />
+              <div className="bg-white text-stone-900 px-12 py-6 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl group-hover:scale-105 transition-transform flex items-center gap-4">
+                Agir via Stripe <ArrowLeft className="w-6 h-6 rotate-180" />
               </div>
             </button>
-            <div className="bg-stone-800 dark:bg-stone-200 px-12 py-3 flex items-center justify-center md:justify-start gap-4">
-               <ShieldCheck className="w-4 h-4 text-green-500" />
-               <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500">Transactions sécurisées • Traçabilité garantie par le Registre J'existe</span>
+            <div className="px-14 py-4 flex items-center justify-center md:justify-start gap-4">
+               <ShieldCheck className="w-4 h-4 text-white/50" />
+               <span className="text-[8px] font-black uppercase tracking-widest text-white/40">Paiement 100% sécurisé • Traçabilité garantie par l'association référente</span>
             </div>
           </motion.div>
         )}
@@ -159,25 +161,25 @@ const ProfileDetailPage: React.FC = () => {
         <section className="p-12 bg-white dark:bg-stone-900 rounded-[3rem] border border-stone-100 dark:border-stone-800 paper-shadow space-y-8">
            <div className="flex items-center gap-3">
              <Sparkles className="w-5 h-5 text-blue-600" />
-             <h2 className="font-mono text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synthèse IA</h2>
+             <h2 className="font-mono text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synthèse Analytique (IA)</h2>
            </div>
            <p className="text-4xl font-serif italic text-stone-800 dark:text-stone-200 leading-tight">« {profil.reformulated_story} »</p>
         </section>
 
         <section className="space-y-8">
-          <h3 className="font-impact text-3xl uppercase tracking-widest text-stone-900 dark:text-white">Agir localement</h3>
+          <h3 className="font-impact text-3xl uppercase tracking-widest text-stone-900 dark:text-white">Actions locales</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-blue-600 p-10 rounded-[3rem] text-white space-y-6 shadow-2xl">
               <ShoppingBag className="w-10 h-10" />
-              <h4 className="font-impact text-4xl uppercase tracking-tighter">Où aider ?</h4>
-              <div className="text-blue-100 font-serif italic text-lg leading-relaxed">
-                {solutionsAide || "Recherche Google en cours..."}
+              <h4 className="font-impact text-4xl uppercase tracking-tighter">Logistique de Proximité</h4>
+              <div className="text-blue-100 font-serif italic text-lg leading-relaxed bg-white/10 p-6 rounded-2xl">
+                {solutionsAide || "Consultation des bases de données locales..."}
               </div>
               
               {sources.length > 0 && (
                 <div className="pt-4 space-y-2">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-blue-300">Vérifié sur :</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-blue-300">Sources vérifiées :</p>
                   <div className="flex flex-wrap gap-2">
                     {sources.map((src, i) => (
                       <a key={i} href={src.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full text-[8px] font-bold transition-all">
@@ -189,13 +191,13 @@ const ProfileDetailPage: React.FC = () => {
               )}
 
               <button className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-stone-50 transition-colors">
-                <Navigation className="w-5 h-5" /> Ouvrir Itinéraire
+                <Navigation className="w-5 h-5" /> Lancer l'itinéraire
               </button>
             </div>
 
             <div className="bg-stone-900 p-10 rounded-[3rem] text-white space-y-8 shadow-2xl border border-stone-800">
               <div className="flex items-center justify-between">
-                <h4 className="font-impact text-4xl uppercase tracking-tighter leading-none">Besoins <br/> Prioritaires</h4>
+                <h4 className="font-impact text-4xl uppercase tracking-tighter leading-none">Inventaire des <br/> Besoins</h4>
                 <Zap className="w-8 h-8 text-amber-500 fill-amber-500" />
               </div>
               <ul className="space-y-4">
@@ -206,6 +208,9 @@ const ProfileDetailPage: React.FC = () => {
                   </li>
                 ))}
               </ul>
+              <div className="p-4 bg-stone-800 rounded-2xl border border-stone-700 text-[9px] font-mono text-stone-500 uppercase tracking-widest leading-relaxed">
+                Ces besoins sont identifiés sur le terrain par nos travailleurs sociaux.
+              </div>
             </div>
           </div>
         </section>
@@ -215,7 +220,7 @@ const ProfileDetailPage: React.FC = () => {
              "Redonner un nom à un visage, c'est commencer à réparer le monde."
            </p>
            <div className="mt-8 opacity-20 hover:opacity-100 transition-opacity">
-              <span className="font-mono text-[8px] uppercase tracking-[0.5em] text-stone-400">J'existe • Registre de Visibilité Sociale • 2024</span>
+              <span className="font-mono text-[8px] uppercase tracking-[0.5em] text-stone-400">J'existe — Registre de Visibilité Sociale — 2024</span>
            </div>
         </footer>
       </main>

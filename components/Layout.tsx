@@ -13,9 +13,9 @@ import {
   Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../contexts/AuthContext';
-import Logo from './Logo';
-import MobileNav from './MobileNav';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import Logo from './Logo.tsx';
+import MobileNav from './MobileNav.tsx';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const localisation = useLocation();
