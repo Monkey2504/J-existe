@@ -6,7 +6,7 @@ import {
   ArrowLeft, Sparkles, User, Loader2,
   AlertCircle, CheckCircle2, Zap, 
   Camera, X, ShieldAlert, History, ImageIcon,
-  CreditCard, MapPin, Plus, FileText, Brain, Users, Star, Target
+  CreditCard, MapPin, Plus, FileText, Brain, Users, Star, Target, Link as LinkIcon
 } from 'lucide-react';
 
 import { Profil } from '../types.ts';
@@ -101,6 +101,25 @@ const EditProfilePage: React.FC = () => {
                className="w-full bg-stone-50 dark:bg-stone-800 p-6 rounded-xl border-none outline-none font-serif text-lg italic min-h-[150px]"
                placeholder="Saisissez ici les observations brutes..."
              />
+          </section>
+
+          {/* Configuration Stripe / Donation */}
+          <section className="bg-blue-600 p-8 rounded-[2rem] shadow-xl text-white space-y-4">
+             <div className="flex items-center gap-3">
+                <CreditCard className="w-5 h-5" />
+                <label className="font-impact text-xl uppercase tracking-widest">Lien de Soutien (Stripe / PayPal)</label>
+             </div>
+             <div className="relative">
+                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
+                <input 
+                  type="url" 
+                  value={donnees.donation_url || ''} 
+                  onChange={e => setDonnees({...donnees, donation_url: e.target.value})}
+                  placeholder="https://buy.stripe.com/..."
+                  className="w-full bg-white/10 border border-white/20 rounded-xl p-4 pl-12 text-white placeholder:text-blue-200 outline-none focus:bg-white/20 transition-all font-mono text-sm"
+                />
+             </div>
+             <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Ce lien sera activé sur le bouton "Soutenir ce parcours" de la fiche publique.</p>
           </section>
 
           {/* Champs IA */}

@@ -14,8 +14,8 @@ interface State {
 /**
  * Composant de secours pour capturer les erreurs inattendues dans l'arborescence des composants.
  */
-// Comment: Using React.Component and a property initializer for state ensures that 'this.state' and 'this.props' are correctly inferred and recognized by TypeScript.
-class ErrorBoundary extends React.Component<Props, State> {
+// Fix: Extending Component<Props, State> directly ensures TypeScript correctly identifies 'this.props' and 'this.state' as inherited members with proper types.
+class ErrorBoundary extends Component<Props, State> {
   // Comment: Property initializer for state avoids potential issues with constructor-based initialization in strict environments.
   public state: State = {
     hasError: false
@@ -32,7 +32,7 @@ class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public render(): ReactNode {
-    // Comment: Accessing 'this.state' and 'this.props' which are inherited from React.Component.
+    // Fix: Accessing 'this.state' and 'this.props' which are inherited from Component.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
@@ -52,6 +52,7 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
+    // Fix: children is correctly defined in the Props interface and accessed via this.props.
     return this.props.children;
   }
 }

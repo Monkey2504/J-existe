@@ -6,6 +6,8 @@ const SUPABASE_URL = "https://dhdvmiimtauebnflmgxa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_kBpi1JNqSfBeu7cvxLxpVg_rCQxJdbb";
 
 let supabaseInstance: SupabaseClient | null = null;
+// Cache en mémoire pour accélérer les transitions
+let cacheProfils: Profil[] | null = null;
 
 export const getSupabase = () => {
   if (supabaseInstance) return supabaseInstance;
@@ -39,7 +41,6 @@ export const peuplerSupabase = async (profils: Partial<Profil>[]): Promise<void>
   const client = getSupabase();
   if (!client) throw new Error("Supabase non disponible.");
   
-  // Nettoyage des données pour l'upsert
   const payload = profils.map(p => {
     const { id, ...rest } = p;
     return rest; 
@@ -50,9 +51,16 @@ export const peuplerSupabase = async (profils: Partial<Profil>[]): Promise<void>
     console.error("Erreur peuplement:", error);
     throw error;
   }
+  // On invalide le cache pour forcer une mise à jour
+  cacheProfils = null;
 };
 
-export const obtenirProfilsPublics = async (): Promise<Profil[]> => {
+export const obtenirProfilsPublics = async (forceRefresh: boolean = false): Promise<Profil[]> => {
+  // Retourner le cache si disponible pour un affichage instantané
+  if (cacheProfils && !forceRefresh) {
+    return cacheProfils;
+  }
+
   const client = getSupabase();
   if (!client) return [];
   const { data, error } = await client
@@ -61,7 +69,12 @@ export const obtenirProfilsPublics = async (): Promise<Profil[]> => {
     .eq('is_public', true)
     .eq('is_archived', false)
     .order('created_at', { ascending: false });
-  return error ? [] : (data as Profil[]);
+  
+  if (!error && data) {
+    cacheProfils = data as Profil[];
+  }
+  
+  return error ? (cacheProfils || []) : (data as Profil[]);
 };
 
 export const obtenirProfils = async (): Promise<Profil[]> => {
@@ -79,7 +92,6 @@ export const sauvegarderProfil = async (donnees: Profil | Partial<Profil>): Prom
   if (!client) throw new Error("Supabase non disponible.");
   
   const payload = { ...donnees };
-  // Retirer l'ID s'il est vide ou trop court (ID temporaire client)
   if (payload.id && (typeof payload.id !== 'string' || payload.id.length < 5)) {
     delete payload.id;
   }
@@ -94,10 +106,19 @@ export const sauvegarderProfil = async (donnees: Profil | Partial<Profil>): Prom
     console.error("Erreur sauvegarde:", error);
     throw error;
   }
+
+  // Invalider le cache car les données ont changé
+  cacheProfils = null;
   return data as Profil;
 };
 
 export const obtenirProfilParIdPublic = async (publicId: string): Promise<Profil | null> => {
+  // Chercher d'abord dans le cache
+  if (cacheProfils) {
+    const found = cacheProfils.find(p => p.publicId === publicId);
+    if (found) return found;
+  }
+
   const client = getSupabase();
   if (!client) return null;
   const { data, error } = await client.from('profiles').select('*').eq('publicId', publicId).single();
@@ -109,6 +130,7 @@ export const supprimerProfil = async (id: string): Promise<void> => {
   const client = getSupabase();
   if (!client) return;
   const { error } = await client.from('profiles').delete().eq('id', id);
+  if (!error) cacheProfils = null;
   if (error) throw error;
 };
 
@@ -118,6 +140,7 @@ export const basculerArchiveProfil = async (id: string): Promise<void> => {
   const { data: cur } = await client.from('profiles').select('is_archived').eq('id', id).single();
   if (cur) {
     const { error } = await client.from('profiles').update({ is_archived: !cur.is_archived }).eq('id', id);
+    if (!error) cacheProfils = null;
     if (error) throw error;
   }
 };

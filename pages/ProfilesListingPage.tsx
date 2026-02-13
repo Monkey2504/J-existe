@@ -7,16 +7,46 @@ import ProfilCard from '../components/ProfilCard.tsx';
 import { obtenirProfilsPublics } from '../services/supabaseService.ts';
 import { Profil, LieuGroupe } from '../types.ts';
 
+// Composant Skeleton pour un chargement plus élégant
+const ProfilSkeleton = () => (
+  <div className="w-full max-w-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-[3rem] p-10 space-y-8 animate-pulse">
+    <div className="flex gap-6 items-center">
+      <div className="w-24 h-24 bg-stone-100 dark:bg-stone-800 rounded-3xl" />
+      <div className="space-y-3 flex-1">
+        <div className="h-8 bg-stone-100 dark:bg-stone-800 rounded-lg w-3/4" />
+        <div className="h-4 bg-stone-100 dark:bg-stone-800 rounded-lg w-1/2" />
+      </div>
+    </div>
+    <div className="space-y-2">
+      <div className="h-4 bg-stone-100 dark:bg-stone-800 rounded-lg w-full" />
+      <div className="h-4 bg-stone-100 dark:bg-stone-800 rounded-lg w-5/6" />
+      <div className="h-4 bg-stone-100 dark:bg-stone-800 rounded-lg w-4/6" />
+    </div>
+  </div>
+);
+
 const ProfilesListingPage: React.FC = () => {
   const [listeProfils, setListeProfils] = useState<Profil[]>([]);
   const [chargement, setChargement] = useState(true);
   const [recherche, setRecherche] = useState('');
 
   useEffect(() => {
-    obtenirProfilsPublics().then(data => {
-      setListeProfils(data || []);
+    // On tente de récupérer le cache immédiatement
+    const fetchProfiles = async () => {
+      // Premier appel : essaie de prendre le cache
+      const cachedData = await obtenirProfilsPublics();
+      if (cachedData.length > 0) {
+        setListeProfils(cachedData);
+        setChargement(false);
+      }
+
+      // Deuxième appel (background) : rafraîchit les données depuis le serveur
+      const freshData = await obtenirProfilsPublics(true);
+      setListeProfils(freshData);
       setChargement(false);
-    });
+    };
+
+    fetchProfiles();
   }, []);
 
   const profilsFiltres = useMemo(() => {
@@ -42,14 +72,6 @@ const ProfilesListingPage: React.FC = () => {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [profilsFiltres]);
 
-  if (chargement) return (
-    <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-      <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5 }} className="font-impact text-white text-5xl uppercase tracking-widest">
-        INDEXATION...
-      </motion.div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-[#fdfcfb] dark:bg-stone-950 pb-40 transition-colors">
       <header className="pt-32 pb-20 px-6 max-w-7xl mx-auto text-center space-y-8">
@@ -74,10 +96,14 @@ const ProfilesListingPage: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-6 mt-32">
         <div className="space-y-48">
-          {groupes.length === 0 ? (
+          {chargement && listeProfils.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+              {[1, 2, 3, 4, 5, 6].map(i => <ProfilSkeleton key={i} />)}
+            </div>
+          ) : groupes.length === 0 ? (
             <div className="py-40 text-center space-y-8">
               <Hash className="w-16 h-16 text-stone-200 mx-auto" />
-              <h3 className="text-4xl font-impact text-stone-300 uppercase">Vide</h3>
+              <h3 className="text-4xl font-impact text-stone-300 uppercase">Aucun profil trouvé</h3>
             </div>
           ) : (
             groupes.map(groupe => (
