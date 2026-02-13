@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Profil } from '../types.ts';
+import { Profil, Commentaire } from '../types.ts';
 
 // Vos clés de production pour le projet dhdvmiimtauebnflmgxa
 const SUPABASE_URL = "https://dhdvmiimtauebnflmgxa.supabase.co";
@@ -44,6 +44,25 @@ export const testerConnexion = async (): Promise<{ ok: boolean; message: string;
   }
 };
 
+/**
+ * Pousse les profils de base vers Supabase.
+ * Fix: Added missing export for peuplerSupabase to resolve import error in AdminDashboard.tsx
+ */
+export const peuplerSupabase = async (profils: Profil[]): Promise<void> => {
+  const client = getSupabase();
+  if (!client) throw new Error("Supabase non disponible.");
+
+  const { error } = await client.from('profiles').upsert(
+    profils.map(p => {
+      // On retire l'ID pour laisser Supabase le générer ou on garde le publicId pour le conflit
+      const { id, ...rest } = p;
+      return rest; 
+    }), 
+    { onConflict: 'publicId' }
+  );
+  if (error) throw error;
+};
+
 export const obtenirProfilsPublics = async (): Promise<Profil[]> => {
   const client = getSupabase();
   if (!client) return [];
@@ -71,7 +90,6 @@ export const sauvegarderProfil = async (donnees: Profil): Promise<Profil> => {
   if (!client) throw new Error("Supabase non disponible.");
   
   const payload = { ...donnees };
-  // On s'assure de ne pas envoyer d'ID vide pour laisser Supabase générer l'UUID
   if (!donnees.id || donnees.id.length < 5) {
     delete (payload as any).id;
   }
@@ -84,20 +102,6 @@ export const sauvegarderProfil = async (donnees: Profil): Promise<Profil> => {
 
   if (error) throw error;
   return data as Profil;
-};
-
-export const peuplerSupabase = async (profils: Profil[]): Promise<void> => {
-  const client = getSupabase();
-  if (!client) throw new Error("Supabase non disponible.");
-
-  // Nettoyage des données pour l'injection initiale
-  const sanitized = profils.map(p => {
-    const { id, ...rest } = p;
-    return rest;
-  });
-
-  const { error } = await client.from('profiles').upsert(sanitized, { onConflict: 'publicId' });
-  if (error) throw error;
 };
 
 export const obtenirProfilParIdPublic = async (publicId: string): Promise<Profil | null> => {
@@ -128,4 +132,40 @@ export const incrementerStatistique = async (publicId: string, stat: string): Pr
     const val = (data as any)[stat] || 0;
     await client.from('profiles').update({ [stat]: val + 1 }).eq('publicId', publicId);
   }
+};
+
+// --- GESTION DES COMMENTAIRES ---
+
+export const obtenirCommentaires = async (publicId: string): Promise<Commentaire[]> => {
+  const client = getSupabase();
+  if (!client) return [];
+  const { data, error } = await client
+    .from('comments')
+    .select('*')
+    .eq('profile_public_id', publicId)
+    .order('created_at', { ascending: true });
+  
+  if (error) {
+    console.warn("Table comments peut-être manquante:", error);
+    return [];
+  }
+  return data as Commentaire[];
+};
+
+export const ajouterCommentaire = async (publicId: string, auteur: string, contenu: string): Promise<Commentaire | null> => {
+  const client = getSupabase();
+  if (!client) return null;
+  const { data, error } = await client
+    .from('comments')
+    .insert({
+      profile_public_id: publicId,
+      author_name: auteur,
+      content: contenu,
+      created_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Commentaire;
 };

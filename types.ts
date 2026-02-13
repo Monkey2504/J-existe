@@ -21,6 +21,14 @@ export interface Profil {
   shares_count?: number;
 }
 
+export interface Commentaire {
+  id: string;
+  profile_public_id: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+}
+
 export interface LieuGroupe {
   nom: string;
   description: string;

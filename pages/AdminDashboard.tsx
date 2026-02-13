@@ -71,7 +71,7 @@ const AdminDashboard: React.FC = () => {
       setDbStatus(status);
       if (status.ok) {
         const donnees = await obtenirProfils();
-        setListeProfils(donnees);
+        setListeProfils(donnees || []);
       }
     } catch (e) {
       setNotification({ message: "Erreur de chargement des données", type: 'erreur' });
@@ -98,6 +98,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const gererArchive = async (id: string) => {
+    if (!id) return;
     try {
       await basculerArchiveProfil(id);
       setNotification({ message: "Statut d'archivage mis à jour", type: 'succes' });
@@ -108,7 +109,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const gererSuppression = async (id: string) => {
-    if (!window.confirm("CONFIRMATION REQUISE : Supprimer définitivement ce dossier d'existence ?")) return;
+    if (!id || !window.confirm("CONFIRMATION REQUISE : Supprimer définitivement ce dossier ?")) return;
     try {
       await supprimerProfil(id);
       setNotification({ message: "Dossier supprimé du registre", type: 'succes' });
@@ -120,8 +121,8 @@ const AdminDashboard: React.FC = () => {
 
   const profilsFiltres = useMemo(() => {
     const terme = recherche.toLowerCase();
-    return listeProfils.filter(p => {
-      const matchSearch = p.name.toLowerCase().includes(terme) || (p.usual_place || "").toLowerCase().includes(terme);
+    return (listeProfils || []).filter(p => {
+      const matchSearch = (p.name || "").toLowerCase().includes(terme) || (p.usual_place || "").toLowerCase().includes(terme);
       const matchTab = ongletActif === 'archives' ? p.is_archived : !p.is_archived;
       return matchSearch && matchTab;
     });
@@ -160,7 +161,7 @@ const AdminDashboard: React.FC = () => {
              <div className="space-y-4 relative z-10">
                <h2 className="text-6xl font-impact text-white uppercase leading-none">Indexation Requise</h2>
                <p className="font-serif italic text-stone-400 text-2xl max-w-2xl mx-auto">
-                 La base de données est vierge. Injectez les trajectoires de vie de référence pour initialiser le système.
+                 La base de données est vide. Injectez les trajectoires de référence pour initialiser le système.
                </p>
              </div>
              <button onClick={handleRestore} className="px-16 py-8 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-[0.4em] hover:scale-105 active:scale-95 transition-all shadow-xl relative z-10">
@@ -198,26 +199,26 @@ const AdminDashboard: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-stone-50 dark:divide-stone-800">
                     {profilsFiltres.map((p) => (
-                      <tr key={p.id} className="group hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors">
+                      <tr key={p?.id || p?.publicId} className="group hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors">
                         <td className="px-12 py-10">
-                          <div className="font-serif font-black text-stone-900 dark:text-white text-2xl uppercase tracking-tight">{p.name}</div>
-                          <div className="font-mono text-[8px] text-stone-300 mt-1 uppercase">ID: {p.publicId.split('-').pop()}</div>
+                          <div className="font-serif font-black text-stone-900 dark:text-white text-2xl uppercase tracking-tight">{p?.name || "Citoyen"}</div>
+                          <div className="font-mono text-[8px] text-stone-300 mt-1 uppercase">ID: {p?.publicId?.split('-').pop() || "REF"}</div>
                         </td>
                         <td className="px-12 py-10">
                           <div className="flex items-center gap-3 text-stone-500 font-serif italic text-lg">
-                             <MapPin className="w-4 h-4 text-blue-600" /> {p.usual_place}
+                             <MapPin className="w-4 h-4 text-blue-600" /> {p?.usual_place || "Bruxelles"}
                           </div>
                         </td>
                         <td className="px-12 py-10">
-                          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-black text-[8px] uppercase tracking-widest ${p.is_verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {p.is_verified ? 'Vérifié' : 'En attente'}
+                          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-black text-[8px] uppercase tracking-widest ${p?.is_verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {p?.is_verified ? 'Vérifié' : 'En attente'}
                           </div>
                         </td>
                         <td className="px-12 py-10 text-right">
                           <div className="flex justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Link to={`/admin/edit/${p.publicId}`} title="Modifier" className="p-4 bg-white dark:bg-stone-800 rounded-2xl border border-stone-100 hover:bg-stone-900 hover:text-white transition-all shadow-sm"><Edit2 className="w-5 h-5" /></Link>
-                            <button onClick={() => gererArchive(p.id)} title={p.is_archived ? "Désarchiver" : "Archiver"} className="p-4 bg-white dark:bg-stone-800 rounded-2xl border border-stone-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm">{p.is_archived ? <RotateCcw className="w-5 h-5" /> : <Archive className="w-5 h-5" />}</button>
-                            <button onClick={() => gererSuppression(p.id)} title="Supprimer" className="p-4 bg-white dark:bg-stone-800 rounded-2xl border border-stone-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 className="w-5 h-5" /></button>
+                            <Link to={`/admin/edit/${p?.publicId}`} title="Modifier" className="p-4 bg-white dark:bg-stone-800 rounded-2xl border border-stone-100 hover:bg-stone-900 hover:text-white transition-all shadow-sm"><Edit2 className="w-5 h-5" /></Link>
+                            <button onClick={() => p?.id && gererArchive(p.id)} title={p?.is_archived ? "Désarchiver" : "Archiver"} className="p-4 bg-white dark:bg-stone-800 rounded-2xl border border-stone-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm">{p?.is_archived ? <RotateCcw className="w-5 h-5" /> : <Archive className="w-5 h-5" />}</button>
+                            <button onClick={() => p?.id && gererSuppression(p.id)} title="Supprimer" className="p-4 bg-white dark:bg-stone-800 rounded-2xl border border-stone-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 className="w-5 h-5" /></button>
                           </div>
                         </td>
                       </tr>
