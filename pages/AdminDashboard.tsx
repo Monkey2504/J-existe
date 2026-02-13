@@ -18,7 +18,7 @@ const SEED_DATA_PROFILES: Partial<Profil>[] = [
     raw_story: 'Ancien maçon pendant 30 ans. Accident de chantier il y a 5 ans. Vit à la rue depuis.', 
     reformulated_story: "Pendant trente ans, Jean-Pierre a été un sculpteur de l'ombre au service de l'urbanisme bruxellois. Ses mains, larges et imprégnées par la poussière calcaire du Brabant, connaissent le poids exact d'une brique de parement et la courbe parfaite d'une voûte en plein cintre. De la rénovation des maisons de maître à Ixelles aux chantiers colossaux du quartier européen, il a été l'artisan d'une ville qui aujourd'hui l'ignore. La 'mécanique de la rupture' s'est enclenchée un matin de gel sur un échafaudage mal arrimé : une chute de quatre mètres qui a broyé ses vertèbres lombaires, mais surtout sa fonction sociale. Privé de son corps d'outil, Jean-Pierre a vu ses droits administratifs s'évaporer dans le labyrinthe des assurances. Aujourd'hui, on le croise Place de la Bourse. Il ne mendie pas ; il observe les façades avec la précision d'un maître d'œuvre. Son regard analyse encore la verticalité des structures, comme pour s'assurer que le monde tient encore debout, même si lui a vacillé. Sa dignité est un manteau de laine toujours brossé, un vestige de son ancienne vie de chef d'équipe qui refuse de céder au chaos du pavé.", 
     needs: "- Chaussures de marche technique Gore-Tex (Taille 44) pour une imperméabilité totale\n- Sac de couchage grand froid (confort -10°C) de qualité expédition\n- Kit d'hygiène complet avec rasoir de sécurité et baume protecteur pour le visage\n- Pantalon de travail renforcé type Cordura pour la résistance thermique\n- Carnet de croquis à grain fin et crayons graphite (HB, 2B) pour dessiner les structures\n- Abonnement mensuel STIB (Réseau Bruxelles) pour les rendez-vous de réinsertion\n- Lampe frontale puissante (300 lumens) pour la lecture nocturne", 
-    usual_place: 'Place de la Bourse', 
+    usual_place: 'Place de la Bourse, Bruxelles', 
     is_public: true, 
     is_verified: true, 
     is_archived: false 
@@ -30,7 +30,7 @@ const SEED_DATA_PROFILES: Partial<Profil>[] = [
     raw_story: 'Aide-ménagère diplomatique. Séparation difficile. Expulsion de logement.', 
     reformulated_story: "Fatima était la gardienne silencieuse de l'éclat diplomatique. En tant qu'aide-ménagère de haut vol pour les résidences d'ambassadeurs, elle maîtrisait l'alchimie des tissus fragiles et la géométrie parfaite d'une table de réception. Son monde était celui du luxe discret, de l'ordre absolu et de la discrétion totale. La rupture n'a pas été un accident, mais une érosion : une séparation conjugale brutale suivie d'une expulsion liée à un bail non déclaré. Sans adresse, ses références prestigieuses sont devenues inutilisables. Dans le tumulte minéral de la Gare du Midi, Fatima maintient un périmètre de propreté méticuleux autour de son maigre bagage. Elle ne s'assoit jamais par terre ; elle reste debout, droite, habituée à la station prolongée du service. Son foulard, toujours impeccablement noué, est son dernier rempart contre l'invisibilité. Elle parle de l'entretien des parquets anciens comme d'une poésie perdue. Sa déchéance n'est pas une perte de compétences, c'est une perte de scène pour les exercer. Elle attend un nouveau seuil à franchir, une porte à ouvrir avec la clé de la confiance.", 
     needs: "- Valise à roulettes rigide (format cabine) pour sécuriser ses effets personnels\n- Trousse de toilette hermétique avec produits de soin dermatologiques\n- Manteau d'hiver long en laine ou coupe-vent technique élégant (Taille L)\n- Smartphone reconditionné avec forfait data pour la recherche d'emploi en ligne\n- Carte de lavage prépayée pour laverie automatique (Forfait 10 cycles)\n- Chaussures de ville confortables et sobres pour entretiens (Pointure 39)\n- Chèques-repas pour l'accès à une alimentation équilibrée", 
-    usual_place: 'Gare du Midi', 
+    usual_place: 'Gare du Midi, Bruxelles', 
     is_public: true, 
     is_verified: true, 
     is_archived: false 
@@ -42,7 +42,7 @@ const SEED_DATA_PROFILES: Partial<Profil>[] = [
     raw_story: 'Administrateur système réseaux. Burn-out sévère. Rupture avec la technologie.', 
     reformulated_story: "Marc est un architecte de l'immatériel dont les propres serveurs internes ont grillé. Ancien administrateur système pour des cabinets de conseil au Quartier Schuman, il passait ses journées à stabiliser des infrastructures critiques et à anticiper les cyber-attaques. La rupture s'appelle 'burn-out de saturation' : un effondrement cognitif total où la lumière des écrans et le bourdonnement des serveurs sont devenus physiquement insupportables. Marc a fui la technologie pour la rue, pensant y trouver le silence. Mais le Quartier Européen, avec ses flux incessants, le rattrape. Il vit désormais au pied des bâtiments qu'il configurait autrefois. Sa gestuelle de dignité est fascinante : il répare bénévolement les smartphones des autres sans-abri, utilisant un petit kit de tournevis de précision comme un chirurgien. Il refuse d'utiliser un ordinateur pour lui-même, mais il protège un exemplaire corné de 'L'Éthique' de Spinoza dans son sac. Pour Marc, la rue est un système d'exploitation défaillant qu'il tente de comprendre sans pouvoir le rebooter. Son intelligence est intacte, mais son interface avec la société est brisée.", 
     needs: "- Batterie externe (Powerbank) solaire haute capacité (20000mAh+) pour ses réparations\n- Kit d'outils de précision pour électronique (Type iFixit)\n- Sac à dos étanche et renforcé anti-vol (Volume 30L)\n- Lunettes de vue avec filtre anti-lumière bleue (correction standard)\n- Veste technique imperméable respirante type Softshell (Taille XL)\n- Carte SIM prépayée pour maintenir l'accès aux portails de santé\n- Ouvrages de philosophie ou de sociologie (format poche)", 
-    usual_place: 'Quartier Schuman', 
+    usual_place: 'Quartier Schuman, Bruxelles', 
     is_public: true, 
     is_verified: false, 
     is_archived: false 
@@ -87,7 +87,7 @@ const AdminDashboard: React.FC = () => {
   const handleRestore = async () => {
     setChargement(true);
     try {
-      await peuplerSupabase(SEED_DATA_PROFILES as Profil[]);
+      await peuplerSupabase(SEED_DATA_PROFILES);
       setNotification({ message: "Indexation Maître réussie !", type: 'succes' });
       await chargerDonnees();
     } catch (e: any) {
@@ -102,7 +102,7 @@ const AdminDashboard: React.FC = () => {
     try {
       await basculerArchiveProfil(id);
       setNotification({ message: "Statut d'archivage mis à jour", type: 'succes' });
-      chargerDonnees();
+      await chargerDonnees();
     } catch (e: any) {
       setNotification({ message: "Action bloquée par le serveur.", type: 'erreur' });
     }
@@ -113,7 +113,7 @@ const AdminDashboard: React.FC = () => {
     try {
       await supprimerProfil(id);
       setNotification({ message: "Dossier supprimé du registre", type: 'succes' });
-      chargerDonnees();
+      await chargerDonnees();
     } catch (e: any) {
       setNotification({ message: "Erreur lors de la suppression.", type: 'erreur' });
     }
@@ -122,7 +122,9 @@ const AdminDashboard: React.FC = () => {
   const profilsFiltres = useMemo(() => {
     const terme = recherche.toLowerCase();
     return (listeProfils || []).filter(p => {
-      const matchSearch = (p.name || "").toLowerCase().includes(terme) || (p.usual_place || "").toLowerCase().includes(terme);
+      const name = p.name || "";
+      const place = p.usual_place || "";
+      const matchSearch = name.toLowerCase().includes(terme) || place.toLowerCase().includes(terme);
       const matchTab = ongletActif === 'archives' ? p.is_archived : !p.is_archived;
       return matchSearch && matchTab;
     });

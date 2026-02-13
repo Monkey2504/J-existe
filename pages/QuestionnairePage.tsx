@@ -91,17 +91,24 @@ const QuestionnairePage: React.FC = () => {
     
     setIsAnalysing(true);
     try {
+      // Comment: analyserProfilComplet returns a structured object { bio, mental_health, ... }
       const syntheseIA = await analyserProfilComplet(reponses.raw_story, reponses.image_url);
       const publicId = `${(reponses.name || "anonyme").toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
       
+      // Comment: Populate all mandatory profile fields from IA results and map bio to reformulated_story.
       await sauvegarderProfil({
         id: "",
         publicId,
         name: reponses.name,
         image_url: reponses.image_url,
         raw_story: reponses.raw_story,
-        reformulated_story: syntheseIA || "Indexation en cours...",
-        needs: "Chargement des besoins...",
+        bio: syntheseIA?.bio || "",
+        mental_health: syntheseIA?.mental_health || "",
+        family_circle: syntheseIA?.family_circle || "",
+        needs: syntheseIA?.needs || "Besoins en cours d'indexation",
+        passions: syntheseIA?.passions || "",
+        projects: syntheseIA?.projects || "",
+        reformulated_story: syntheseIA?.bio || "Indexation en cours...",
         usual_place: reponses.usual_place || "Bruxelles",
         is_public: true,
         is_archived: false,

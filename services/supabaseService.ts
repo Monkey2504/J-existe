@@ -2,18 +2,13 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Profil, Commentaire } from '../types.ts';
 
-// Vos clés de production pour le projet dhdvmiimtauebnflmgxa
 const SUPABASE_URL = "https://dhdvmiimtauebnflmgxa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_kBpi1JNqSfBeu7cvxLxpVg_rCQxJdbb";
 
 let supabaseInstance: SupabaseClient | null = null;
 
-/**
- * Initialise le client avec vos clés spécifiques.
- */
 export const getSupabase = () => {
   if (supabaseInstance) return supabaseInstance;
-
   try {
     supabaseInstance = createClient(SUPABASE_URL, SUPABASE_KEY);
     return supabaseInstance;
@@ -23,44 +18,38 @@ export const getSupabase = () => {
   }
 };
 
-/**
- * Teste si la table 'profiles' est accessible sur votre nouveau projet.
- */
 export const testerConnexion = async (): Promise<{ ok: boolean; message: string; url: string }> => {
   const client = getSupabase();
   if (!client) return { ok: false, message: "Client non initialisé.", url: SUPABASE_URL };
-
   try {
     const { error } = await client.from('profiles').select('id').limit(1);
     if (error) {
       if (error.code === '42P01') {
-        return { ok: false, message: "La table 'profiles' n'existe pas sur ce projet. Créez-la pour continuer.", url: SUPABASE_URL };
+        return { ok: false, message: "Table 'profiles' manquante. Veuillez exécuter les scripts SQL.", url: SUPABASE_URL };
       }
       throw error;
     }
-    return { ok: true, message: "Connecté avec succès à votre projet Supabase.", url: SUPABASE_URL };
+    return { ok: true, message: "Synchronisé avec le cloud.", url: SUPABASE_URL };
   } catch (e: any) {
-    return { ok: false, message: e.message || "Erreur de liaison réseau.", url: SUPABASE_URL };
+    return { ok: false, message: e.message || "Erreur réseau Supabase.", url: SUPABASE_URL };
   }
 };
 
-/**
- * Pousse les profils de base vers Supabase.
- * Fix: Added missing export for peuplerSupabase to resolve import error in AdminDashboard.tsx
- */
-export const peuplerSupabase = async (profils: Profil[]): Promise<void> => {
+export const peuplerSupabase = async (profils: Partial<Profil>[]): Promise<void> => {
   const client = getSupabase();
   if (!client) throw new Error("Supabase non disponible.");
+  
+  // Nettoyage des données pour l'upsert
+  const payload = profils.map(p => {
+    const { id, ...rest } = p;
+    return rest; 
+  });
 
-  const { error } = await client.from('profiles').upsert(
-    profils.map(p => {
-      // On retire l'ID pour laisser Supabase le générer ou on garde le publicId pour le conflit
-      const { id, ...rest } = p;
-      return rest; 
-    }), 
-    { onConflict: 'publicId' }
-  );
-  if (error) throw error;
+  const { error } = await client.from('profiles').upsert(payload, { onConflict: 'publicId' });
+  if (error) {
+    console.error("Erreur peuplement:", error);
+    throw error;
+  }
 };
 
 export const obtenirProfilsPublics = async (): Promise<Profil[]> => {
@@ -85,13 +74,14 @@ export const obtenirProfils = async (): Promise<Profil[]> => {
   return error ? [] : (data as Profil[]);
 };
 
-export const sauvegarderProfil = async (donnees: Profil): Promise<Profil> => {
+export const sauvegarderProfil = async (donnees: Profil | Partial<Profil>): Promise<Profil> => {
   const client = getSupabase();
   if (!client) throw new Error("Supabase non disponible.");
   
   const payload = { ...donnees };
-  if (!donnees.id || donnees.id.length < 5) {
-    delete (payload as any).id;
+  // Retirer l'ID s'il est vide ou trop court (ID temporaire client)
+  if (payload.id && (typeof payload.id !== 'string' || payload.id.length < 5)) {
+    delete payload.id;
   }
 
   const { data, error } = await client
@@ -100,7 +90,10 @@ export const sauvegarderProfil = async (donnees: Profil): Promise<Profil> => {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Erreur sauvegarde:", error);
+    throw error;
+  }
   return data as Profil;
 };
 
@@ -108,20 +101,25 @@ export const obtenirProfilParIdPublic = async (publicId: string): Promise<Profil
   const client = getSupabase();
   if (!client) return null;
   const { data, error } = await client.from('profiles').select('*').eq('publicId', publicId).single();
-  return error ? null : (data as Profil);
+  if (error) return null;
+  return data as Profil;
 };
 
 export const supprimerProfil = async (id: string): Promise<void> => {
   const client = getSupabase();
   if (!client) return;
-  await client.from('profiles').delete().eq('id', id);
+  const { error } = await client.from('profiles').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const basculerArchiveProfil = async (id: string): Promise<void> => {
   const client = getSupabase();
   if (!client) return;
   const { data: cur } = await client.from('profiles').select('is_archived').eq('id', id).single();
-  if (cur) await client.from('profiles').update({ is_archived: !cur.is_archived }).eq('id', id);
+  if (cur) {
+    const { error } = await client.from('profiles').update({ is_archived: !cur.is_archived }).eq('id', id);
+    if (error) throw error;
+  }
 };
 
 export const incrementerStatistique = async (publicId: string, stat: string): Promise<void> => {
@@ -134,8 +132,6 @@ export const incrementerStatistique = async (publicId: string, stat: string): Pr
   }
 };
 
-// --- GESTION DES COMMENTAIRES ---
-
 export const obtenirCommentaires = async (publicId: string): Promise<Commentaire[]> => {
   const client = getSupabase();
   if (!client) return [];
@@ -144,11 +140,7 @@ export const obtenirCommentaires = async (publicId: string): Promise<Commentaire
     .select('*')
     .eq('profile_public_id', publicId)
     .order('created_at', { ascending: true });
-  
-  if (error) {
-    console.warn("Table comments peut-être manquante:", error);
-    return [];
-  }
+  if (error) return [];
   return data as Commentaire[];
 };
 
@@ -165,7 +157,6 @@ export const ajouterCommentaire = async (publicId: string, auteur: string, conte
     })
     .select()
     .single();
-
   if (error) throw error;
   return data as Commentaire;
 };

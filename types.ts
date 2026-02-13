@@ -4,12 +4,20 @@ export interface Profil {
   id: string;
   publicId: string;
   name: string;
-  image_url?: string; // URL de la photo ou illustration
-  donation_url?: string; // Lien Stripe ou cagnotte
+  image_url?: string;
+  donation_url?: string;
   raw_story: string;
-  reformulated_story: string;
+  reformulated_story?: string;
+  
+  // Rubriques standardisées
+  bio: string;
+  mental_health: string;
+  family_circle: string;
   needs: string;
-  urgent_needs?: string[]; // Liste des besoins marqués comme urgents
+  passions: string;
+  projects: string;
+
+  urgent_needs?: string[];
   usual_place: string;
   is_public: boolean;
   is_archived: boolean;
